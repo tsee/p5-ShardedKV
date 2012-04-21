@@ -32,12 +32,28 @@ has 'expiration_time' => ( # in seconds
   #isa => 'Num',
 );
 
+has 'database_number' => (
+  is => 'rw',
+  # isa => 'Int',
+  write => '_set_database_number',
+);
+
+sub _set_database_number {
+  my $self = shift;
+  $self->{database_number} = shift;
+  if (defined $self->{master}) {
+    $self->master->select($self->{database_number});
+  }
+}
+
 sub _make_connection {
   my ($self, $endpoint) = @_;
   my $r = Redis->new( # dies if it can't connect!
     server => $endpoint,
     encoding => undef, # no automatic utf8 encoding for performance
   );
+  my $dbno = $self->database_number;
+  $r->select($dbno) if defined $dbno;
   return $r;
 }
 
@@ -110,6 +126,12 @@ at any time.
 
 Key expiration time to use in seconds.
 
+=head2 database_number
+
+Indicates the number of the Redis database to use for this shard.
+If undef/non-existant, no specific database will be selected,
+so the Redis server will use the default.
+
 =head1 METHODS
 
 =head2 delete
@@ -122,7 +144,8 @@ Not implemented in the base class. This method is supposed to fetch a value
 back from Redis. Beware: Depending on the C<ShardedKV::Storage::Redis> subclass,
 the reference type that this method returns may vary. For example, if you use
 C<ShardedKV::Storage::Redis::String>, the return value will be a scalar reference
-to a string.
+to a string. For C<ShardedKV::String::Redis::Hash>, the return value is
+unsurprisingly a hash reference.
 
 =head2 set
 
@@ -131,7 +154,8 @@ be of the same reference type that is returned by C<get()>.
 
 =head1 SEE ALSO
 
-L<ShardedKV>, L<ShardedKV::Storage>, L<ShardedKV::Storage::Redis::String>
+L<ShardedKV>, L<ShardedKV::Storage>, L<ShardedKV::Storage::Redis::String>,
+L<ShardedKV::Storage::Redis::Hash>
 
 L<Redis>
 
