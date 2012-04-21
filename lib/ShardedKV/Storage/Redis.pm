@@ -35,16 +35,14 @@ has 'expiration_time' => ( # in seconds
 has 'database_number' => (
   is => 'rw',
   # isa => 'Int',
-  write => '_set_database_number',
+  trigger => sub {
+    my $self = shift;
+    $self->{database_number} = shift;
+    if (defined $self->{master}) {
+      $self->master->select($self->{database_number});
+    }
+  },
 );
-
-sub _set_database_number {
-  my $self = shift;
-  $self->{database_number} = shift;
-  if (defined $self->{master}) {
-    $self->master->select($self->{database_number});
-  }
-}
 
 sub _make_connection {
   my ($self, $endpoint) = @_;

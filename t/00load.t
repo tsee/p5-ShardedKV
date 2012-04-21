@@ -1,7 +1,9 @@
-use Test::More tests => 6;
-BEGIN { use_ok('ShardedKV') };
-BEGIN { use_ok('ShardedKV::Continuum::Ketama') };
-BEGIN { use_ok('ShardedKV::Storage::MySQL') };
-BEGIN { use_ok('ShardedKV::Storage::Redis') };
-BEGIN { use_ok('ShardedKV::Storage::Redis::String') };
-BEGIN { use_ok('ShardedKV::Storage::Redis::Hash') };
+use Test::More tests => 1;
+use ShardedKV;
+use ShardedKV::Continuum::Ketama;
+use ShardedKV::Storage::MySQL;
+use ShardedKV::Storage::Redis;
+use ShardedKV::Storage::Redis::String;
+use ShardedKV::Storage::Redis::Hash;
+
+pass();
