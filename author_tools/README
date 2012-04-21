@@ -1,0 +1,8 @@
+Take the mysql-DSN related file from this directory, adapt it to your
+mysql test database/host, and put it in the distribution main directory
+to run the mysql-related tests.
+
+WARNING: The mysql tests (if set up using the above) will create tables,
+         stuff data in them, and NOT CLEAN UP AFTER THEM!
+         That's a TODO, but for the time being, since this is an author
+         test, clean up after yourself.
