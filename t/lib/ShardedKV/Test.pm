@@ -20,7 +20,7 @@ our @EXPORT = qw(
   simple_test_multiple_servers_ketama
 
   extension_test_by_one_server_ketama
-  extension_test_by_five_servers_ketama
+  extension_test_by_multiple_servers_ketama
   make_skv
 );
 
@@ -120,25 +120,25 @@ sub test_setget {
 
   my @keys;
   push @keys, qw(virgin foo);
-  is_deeply($skv->get("virgin"), undef, $name);
+  is_deeply($skv->get("virgin"), undef, "$name - getting non-existant key is undef");
   $skv->set("foo", $refmaker->("bar"));
-  is_deeply($skv->get("foo"), $refmaker->("bar"), $name);
-  is_deeply($skv->get("foo"), $refmaker->("bar"), $name);
+  is_deeply($skv->get("foo"), $refmaker->("bar"), "$name - getting existant key returns corr. value");
+  is_deeply($skv->get("foo"), $refmaker->("bar"), "$name - and does so multiple times");
   $skv->set("foo", $refmaker->("bar2"));
-  is_deeply($skv->get("foo"), $refmaker->("bar2"), $name);
+  is_deeply($skv->get("foo"), $refmaker->("bar2"), "$name - updating existing value");
   $skv->delete("foo");
-  is_deeply($skv->get("foo"), undef, $name);
-  is_deeply($skv->get("virgin"), undef, $name);
+  is_deeply($skv->get("foo"), undef, "$name - deleted key returns undef");
+  is_deeply($skv->get("virgin"), undef, "$name - non-existant key still undef");
 
   srand(0);
-  my %data = map {(rand(), rand())} 0..1000;
+  my %data = map {(substr(rand(), 0, 16), rand())} 0..1000;
 
   foreach (sort keys %data) {
-    push @keys, $_;
+    push @keys, $refmaker->($_);
     $skv->set($_, $refmaker->($data{$_}));
   }
   foreach (reverse sort keys %data) {
-    is_deeply( $skv->get($_), $refmaker->($data{$_}), $name );
+    is_deeply( $skv->get($_), $refmaker->($data{$_}), "$name key $_" );
   }
 
   return \@keys;
