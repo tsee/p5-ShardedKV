@@ -245,7 +245,7 @@ sub extension_test_by_one_server_ketama {
   my $storage_type = shift;
 
   # yes, yes, this blows.
-  my $make_ref = $storage_type =~ /memory/i ? sub {\$_[0]} : sub {[$_[0]]};
+  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0]]};
 
   my $continuum_spec = [
     ["server1", 100],
@@ -282,7 +282,7 @@ sub extension_test_by_one_server_ketama {
   is_deeply($skv->get($_), $make_ref->("N$_")) for @first_half_keys;
 
   if ($storage_type =~ /memory/i) {
-    # FIXME support this part of the test for mysql!
+    # FIXME support this part of the test for mysql and redis!
     check_old_new("Single new server", $skv, qr/^server4$/);
   }
 
@@ -297,7 +297,7 @@ sub extension_test_by_multiple_servers_ketama {
   my $storage_type = shift;
 
   # yes, yes, this blows.
-  my $make_ref = $storage_type =~ /memory/i ? sub {\$_[0]} : sub {[$_[0]]};
+  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0]]};
 
   my $continuum_spec = [
     ["server1", 10],
@@ -335,7 +335,7 @@ sub extension_test_by_multiple_servers_ketama {
   is_deeply($skv->get($_), $make_ref->("N$_")) for @first_half_keys;
 
   if ($storage_type =~ /memory/i) {
-    # FIXME support this part of the test for mysql!
+    # FIXME support this part of the test for mysql and redis!
     check_old_new("Many new servers", $skv, qr/^server[5-8]$/);
   }
 }
