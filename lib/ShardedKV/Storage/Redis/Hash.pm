@@ -1,5 +1,6 @@
 package ShardedKV::Storage::Redis::Hash;
 use Moose;
+# ABSTRACT: Storing hash values in Redis
 use parent 'ShardedKV::Storage::Redis';
 use Encode;
 use Redis;
@@ -34,10 +35,6 @@ __PACKAGE__->meta->make_immutable;
 
 __END__
 
-=head1 NAME
-
-ShardedKV::Storage::Redis::Hash - Storing hash values in Redis
-
 =head1 SYNOPSIS
 
   use ShardedKV;
@@ -65,19 +62,10 @@ actually scalar references to strings.
 
 =head1 SEE ALSO
 
-L<ShardedKV>, L<ShardedKV::Storage>
-L<ShardedKV::Storage::Redis>, L<ShardedKV::Storage::Redis::String>
-
-=head1 AUTHOR
-
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2012 by Steffen Mueller
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.1 or,
-at your option, any later version of Perl 5 you may have available.
+=for :list
+* L<ShardedKV>
+* L<ShardedKV::Storage>
+* L<ShardedKV::Storage::Redis>
+* L<ShardedKV::Storage::Redis::String>
 
 =cut

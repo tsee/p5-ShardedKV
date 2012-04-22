@@ -1,5 +1,6 @@
 package ShardedKV::Continuum::Ketama;
 use Moose;
+# ABSTRACT: Continuum implementation based on ketama consistent hashing
 use Algorithm::ConsistentHash::Ketama;
 use JSON::XS qw(encode_json decode_json);
 
@@ -85,10 +86,6 @@ __PACKAGE__->meta->make_immutable;
 
 __END__
 
-=head1 NAME
-
-ShardedKV::Continuum::Ketama - Continuum implementation based on ketama consistent hashing
-
 =head1 SYNOPSIS
 
   use ShardedKV;
@@ -107,18 +104,9 @@ See C<Algorithm::ConsistentHash::Ketama>.
 
 =head1 SEE ALSO
 
-L<ShardedKV>, L<ShardedKV::Continuum>
-
-=head1 AUTHOR
-
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2012 by Steffen Mueller
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.1 or,
-at your option, any later version of Perl 5 you may have available.
+=for :list
+* L<ShardedKV>
+* L<ShardedKV::Continuum>
+* L<Algorithm::ConsistentHash::Ketama>
 
 =cut

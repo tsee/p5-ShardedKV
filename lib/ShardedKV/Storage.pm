@@ -1,5 +1,20 @@
 package ShardedKV::Storage;
 use Moose::Role;
+# ABSTRACT: Role for classes implementing storage backends
+
+=role_requires get
+
+TODO
+
+=role_requires set
+
+TODO
+
+=role_requires delete
+
+TODO
+
+=cut
 
 requires qw(get set delete);
 
@@ -9,28 +24,21 @@ no Moose;
 
 __END__
 
-=head1 NAME
-
-ShardedKV::Storage - ...
-
 =head1 SYNOPSIS
+
+  TODO
 
 =head1 DESCRIPTION
 
+TODO
+
 =head1 SEE ALSO
 
-L<ShardedKV>
-
-=head1 AUTHOR
-
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2012 by Steffen Mueller
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.1 or,
-at your option, any later version of Perl 5 you may have available.
+=for :list
+* L<ShardedKV>
+* L<ShardedKV::Storage::Memory>
+* L<ShardedKV::Storage::Redis>
+* L<ShardedKV::Storage::MySQL>
 
 =cut
+

@@ -1,6 +1,6 @@
 package ShardedKV::Storage::Memory;
 use Moose;
-use Encode;
+# ABSTRACT: Testing storage backend for in-memory storage
 
 with 'ShardedKV::Storage';
 
@@ -32,28 +32,21 @@ __PACKAGE__->meta->make_immutable;
 
 __END__
 
-=head1 NAME
-
-ShardedKV::Storage::Memory - ...
-
 =head1 SYNOPSIS
+
+  TODO
 
 =head1 DESCRIPTION
 
+A C<ShardedKV> storage backend that uses a Perl in-memory hash for
+storage. It is mainly intended for testing.
+
+Implements the C<ShardedKV::Storage> role.
+
 =head1 SEE ALSO
 
-L<ShardedKV>
-
-=head1 AUTHOR
-
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2012 by Steffen Mueller
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.1 or,
-at your option, any later version of Perl 5 you may have available.
+=for :list
+* L<ShardedKV>
+* L<ShardedKV::Storage>
 
 =cut

@@ -1,16 +1,33 @@
 package ShardedKV::Storage::Redis;
 use Moose;
+# ABSTRACT: Abstract base class for storing k/v pairs in Redis
+
 use Encode;
 use Redis;
 use List::Util qw(shuffle);
 
 with 'ShardedKV::Storage';
 
+=attribute_public redis_master_str
+
+A hostname:port string pointing at the Redis master for this shard.
+Required.
+
+=cut
+
 has 'redis_master_str' => (
   is => 'ro',
   isa => 'Str',
   required => 1,
 );
+
+=attribute_public redis_slave_strs
+
+Array reference of hostname:port strings representing Redis slaves
+of the master. Currently unused, will eventually be used for either
+reading or master failover.
+
+=cut
 
 # For either failover or reading => TODO might make sense to separate the two
 has 'redis_slave_strs' => (
@@ -20,6 +37,14 @@ has 'redis_slave_strs' => (
   default => sub {[]},
 );
 
+=attribute_public redis_master
+
+The C<Redis> object that represents the master connection. Will be
+generated from the C<redis_master_str> attribute and may be reset/reconnected
+at any time.
+
+=cut
+
 has 'redis_master' => (
   is => 'rw',
   isa => 'Redis',
@@ -27,10 +52,24 @@ has 'redis_master' => (
   builder => '_make_master_conn',
 );
 
+=attribute_public expiration_time
+
+Key expiration time to use in seconds.
+
+=cut
+
 has 'expiration_time' => ( # in seconds
   is => 'rw',
   #isa => 'Num',
 );
+
+=attribute_public database_number
+
+Indicates the number of the Redis database to use for this shard.
+If undef/non-existant, no specific database will be selected,
+so the Redis server will use the default.
+
+=cut
 
 has 'database_number' => (
   is => 'rw',
@@ -72,22 +111,43 @@ sub _make_slave_conn {
   return $conn;
 }
 
+=method_public delete
+
+Implemented in the base class, this method deletes the given key from the Redis shard.
+
+=cut
+
 sub delete {
   my ($self, $key) = @_;
   return $self->master->delete($key);
 }
 
+=method_public get
+
+Not implemented in the base class. This method is supposed to fetch a value
+back from Redis. Beware: Depending on the C<ShardedKV::Storage::Redis> subclass,
+the reference type that this method returns may vary. For example, if you use
+C<ShardedKV::Storage::Redis::String>, the return value will be a scalar reference
+to a string. For C<ShardedKV::String::Redis::Hash>, the return value is
+unsurprisingly a hash reference.
+
+=cut
+
 sub get { die "Method get() not implemented in abstract base class" }
+
+=head2 set
+
+The counterpart to C<get>. Expects values as second argument. The value must
+be of the same reference type that is returned by C<get()>.
+
+=cut
+
 sub set { die "Method set() not implemented in abstract base class" }
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
 __END__
-
-=head1 NAME
-
-ShardedKV::Storage::Redis - Abstract base class for storing k/v pairs in Redis
 
 =head1 SYNOPSIS
 
@@ -101,72 +161,11 @@ the C<get()> and C<set()> methods and does not impose a Redis value type.
 Different subclasses of this class are expected to represent different
 storages for distinct Redis value types.
 
-=head1 OBJECT ATTRIBUTES
-
-=head2 redis_master_str
-
-A hostname:port string pointing at the Redis master for this shard.
-Required.
-
-=head2 redis_slave_strs
-
-Array reference of hostname:port strings representing Redis slaves
-of the master. Currently unused, will eventually be used for either
-reading or master failover.
-
-=head2 redis_master
-
-The C<Redis> object that represents the master connection. Will be
-generated from the C<redis_master_str> attribute and may be reset/reconnected
-at any time.
-
-=head2 expiration_time
-
-Key expiration time to use in seconds.
-
-=head2 database_number
-
-Indicates the number of the Redis database to use for this shard.
-If undef/non-existant, no specific database will be selected,
-so the Redis server will use the default.
-
-=head1 METHODS
-
-=head2 delete
-
-Implemented in the base class, this method deletes the given key from the Redis shard.
-
-=head2 get
-
-Not implemented in the base class. This method is supposed to fetch a value
-back from Redis. Beware: Depending on the C<ShardedKV::Storage::Redis> subclass,
-the reference type that this method returns may vary. For example, if you use
-C<ShardedKV::Storage::Redis::String>, the return value will be a scalar reference
-to a string. For C<ShardedKV::String::Redis::Hash>, the return value is
-unsurprisingly a hash reference.
-
-=head2 set
-
-The counterpart to C<get>. Expects values as second argument. The value must
-be of the same reference type that is returned by C<get()>.
-
 =head1 SEE ALSO
 
-L<ShardedKV>, L<ShardedKV::Storage>, L<ShardedKV::Storage::Redis::String>,
-L<ShardedKV::Storage::Redis::Hash>
-
-L<Redis>
-
-=head1 AUTHOR
-
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
-
-=head1 COPYRIGHT AND LICENSE
-
-Copyright (C) 2012 by Steffen Mueller
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.8.1 or,
-at your option, any later version of Perl 5 you may have available.
-
-=cut
+=for :list
+* L<ShardedKV>
+* L<ShardedKV::Storage>
+* L<ShardedKV::Storage::Redis::String>
+* L<ShardedKV::Storage::Redis::Hash>
+* L<Redis>
