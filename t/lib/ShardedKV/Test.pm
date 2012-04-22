@@ -12,6 +12,9 @@ our @EXPORT = qw(
   mysql_connect_hook
   mysql_storage
 
+  get_redis_conf
+  redis_string_storage
+
   test_setget
   simple_test_one_server_ketama
   simple_test_five_servers_ketama
@@ -21,32 +24,33 @@ our @EXPORT = qw(
   make_skv
 );
 
-my @connect_args;
-my $file = 'testmysqldsn.conf';
-sub get_mysql_conf {
-  return @connect_args if @connect_args;
+SCOPE: { # mysql
 
-  if (-f $file) {
-    open my $fh, "<", $file or die $!;
-    @connect_args = <$fh>;
-    chomp $_ for @connect_args;
-    die "Failed to read DSN" if not @connect_args;
-    return @connect_args;
+  my @mysql_connect_args;
+  my $mysql_conf_file = 'testmysqldsn.conf';
+  sub get_mysql_conf {
+    return @mysql_connect_args if @mysql_connect_args;
+
+    if (-f $mysql_conf_file) {
+      open my $fh, "<", $mysql_conf_file or die $!;
+      @mysql_connect_args = <$fh>;
+      chomp $_ for @mysql_connect_args;
+      die "Failed to read DSN" if not @mysql_connect_args;
+      return @mysql_connect_args;
+    }
+
+    note("There are not connection details.");
+    return();
   }
 
-  note("There are not connection details.");
-  return();
-}
+  my $shared_connection;
+  sub mysql_connect_hook {
+    return $shared_connection if $shared_connection;
+    require DBI;
+    require DBD::mysql;
+    return( $shared_connection = DBI->connect(get_mysql_conf()) );
+  }
 
-my $shared_connection;
-sub mysql_connect_hook {
-  return $shared_connection if $shared_connection;
-  require DBI;
-  require DBD::mysql;
-  return( $shared_connection = DBI->connect(get_mysql_conf()) );
-}
-
-SCOPE: {
   my $itable;
   sub mysql_storage {
     $itable ||= 1;
@@ -60,11 +64,50 @@ SCOPE: {
     $itable++;
     return $st;
   }
-}
+
+} # end mysql SCOPE
+
+SCOPE: { # redis
+
+  my $redis_connect_str;
+  my $redis_conf_file = 'testredis.conf';
+  sub get_redis_conf {
+    return $redis_connect_str if defined $redis_connect_str;
+
+    if (-f $redis_conf_file) {
+      open my $fh, "<", $redis_conf_file or die $!;
+      $redis_connect_str = <$fh>;
+      chomp $redis_connect_str;
+      die "Failed to read Redis connect info"
+        if not defined $redis_connect_str;
+      return $redis_connect_str;
+    }
+
+    note("There are not connection details.");
+    return();
+  }
+
+  my $idatabase;
+  sub redis_string_storage {
+    $idatabase ||= 0;
+    note("Setting connection to Redis db number $idatabase");
+    my $st = ShardedKV::Storage::Redis::String->new(
+      redis_master_str => get_redis_conf(),
+      database_number => $idatabase,
+      expiration_time => 30, # 30s
+    );
+    $idatabase++;
+    return $st;
+  }
+
+} # end redis SCOPE
+
 
 sub test_setget {
   my ($name, $skv) = @_;
 
+  my @keys;
+  push @keys, qw(virgin foo);
   is_deeply($skv->get("virgin"), undef, $name);
   $skv->set("foo", \"bar");
   is_deeply($skv->get("foo"), \"bar", $name);
@@ -79,11 +122,14 @@ sub test_setget {
   my %data = map {(rand(), rand())} 0..1000;
 
   foreach (sort keys %data) {
+    push @keys, $_;
     $skv->set($_, \$data{$_});
   }
   foreach (reverse sort keys %data) {
     is_deeply( $skv->get($_), \$data{$_}, $name );
   }
+
+  return \@keys;
 }
 
 sub test_setget_mysql {
@@ -134,10 +180,15 @@ sub simple_test_one_server_ketama {
   is(ref($skv->storages), "HASH");
   #isa_ok($_, "ShardedKV::Storage::Memory") foreach values %{$skv->storages};
 
+  my $keys;
   if (grep $_->isa("ShardedKV::Storage::MySQL"), values %{$skv->storages}) {
     test_setget_mysql("one server mysql", $skv);
   } else {
-    test_setget("one server", $skv);
+    $keys = test_setget("one server", $skv);
+  }
+
+  if (ref($keys) eq 'ARRAY') {
+    $skv->delete($_) for @$keys;
   }
 }
 
@@ -166,13 +217,15 @@ sub simple_test_five_servers_ketama {
   is(ref($skv->storages), "HASH");
   #isa_ok($_, "ShardedKV::Storage::Memory") foreach values %{$skv->storages};
 
-  my $is_mem = (values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Memory");
-  if ($is_mem) {
-    test_setget("five servers", $skv);
+  my $is_mysql = (values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::MySQL");
+  my $keys;
+  if (not $is_mysql) {
+    $keys = test_setget("five servers", $skv);
   } else { # mysql
     test_setget_mysql("five servers mysql", $skv);
   }
 
+  my $is_mem = (values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Memory");
   if ($is_mem) {
     my $servers_with_keys = 0;
     foreach my $server (values %{$skv->{storages}}) {
@@ -180,6 +233,10 @@ sub simple_test_five_servers_ketama {
       $servers_with_keys++ if keys %{$server->hash};
     }
     ok($servers_with_keys > 1); # technically probabilistic, but chances of failure are nil
+  }
+
+  if (ref($keys) eq 'ARRAY') {
+    $skv->delete($_) for @$keys;
   }
 }
 

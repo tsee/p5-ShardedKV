@@ -21,7 +21,7 @@ sub set {
     Carp::croak("Value must be a hashref");
   }
 
-  my $r = $self->master;
+  my $r = $self->redis_master;
   my $rv = $r->hmset($key, %$value_ref);
 
   my $expire = $self->expiration_time;

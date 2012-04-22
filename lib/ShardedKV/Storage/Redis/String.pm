@@ -11,12 +11,12 @@ sub get {
   my $master = $self->redis_master;
   my $vref = \($master->get($key));
   Encode::_utf8_on($$vref); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
-  return $vref;
+  return defined($$vref) ? $vref : undef;
 }
 
 sub set {
   my ($self, $key, $value_ref) = @_;
-  my $r = $self->master;
+  my $r = $self->redis_master;
   my $expire = $self->expiration_time;
   my $rv = $r->set($key, $$value_ref);
   $r->expire($key, $expire) if $expire;

@@ -77,8 +77,8 @@ has 'database_number' => (
   trigger => sub {
     my $self = shift;
     $self->{database_number} = shift;
-    if (defined $self->{master}) {
-      $self->master->select($self->{database_number});
+    if (defined $self->{redis_master}) {
+      $self->redis_master->select($self->{database_number});
     }
   },
 );
@@ -119,7 +119,7 @@ Implemented in the base class, this method deletes the given key from the Redis 
 
 sub delete {
   my ($self, $key) = @_;
-  return $self->master->delete($key);
+  return $self->redis_master->del($key);
 }
 
 =method_public get
