@@ -3,6 +3,8 @@ Revision history for Perl extension Foo.
 {{$NEXT}}
 
   - Tests for the Redis string storage.
+  - Basic tests for the Redis hash storage.
+  - Fixed return value for ::Storage::Redis::Hash->get
 
 0.02      2012-04-22 11:33:31 Europe/Berlin
 
