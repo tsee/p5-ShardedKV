@@ -12,7 +12,7 @@ sub get {
   my $master = $self->redis_master;
   my %hash = $master->hgetall($key);
   #Encode::_utf8_on($$vref); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
-  return \%hash;
+  return keys(%hash) ? \%hash : undef;
 }
 
 sub set {

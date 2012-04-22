@@ -14,13 +14,13 @@ our @EXPORT = qw(
 
   get_redis_conf
   redis_string_storage
+  redis_hash_storage
 
-  test_setget
   simple_test_one_server_ketama
-  simple_test_five_servers_ketama
+  simple_test_multiple_servers_ketama
 
   extension_test_by_one_server_ketama
-  extension_test_by_multiple_servers_ketama
+  extension_test_by_five_servers_ketama
   make_skv
 );
 
@@ -100,20 +100,32 @@ SCOPE: { # redis
     return $st;
   }
 
+  sub redis_hash_storage {
+    $idatabase ||= 0;
+    note("Setting connection to Redis db number $idatabase");
+    my $st = ShardedKV::Storage::Redis::Hash->new(
+      redis_master_str => get_redis_conf(),
+      database_number => $idatabase,
+      expiration_time => 30, # 30s
+    );
+    $idatabase++;
+    return $st;
+  }
+
 } # end redis SCOPE
 
 
 sub test_setget {
-  my ($name, $skv) = @_;
+  my ($name, $skv, $refmaker) = @_;
 
   my @keys;
   push @keys, qw(virgin foo);
   is_deeply($skv->get("virgin"), undef, $name);
-  $skv->set("foo", \"bar");
-  is_deeply($skv->get("foo"), \"bar", $name);
-  is_deeply($skv->get("foo"), \"bar", $name);
-  $skv->set("foo", \"bar2");
-  is_deeply($skv->get("foo"), \"bar2", $name);
+  $skv->set("foo", $refmaker->("bar"));
+  is_deeply($skv->get("foo"), $refmaker->("bar"), $name);
+  is_deeply($skv->get("foo"), $refmaker->("bar"), $name);
+  $skv->set("foo", $refmaker->("bar2"));
+  is_deeply($skv->get("foo"), $refmaker->("bar2"), $name);
   $skv->delete("foo");
   is_deeply($skv->get("foo"), undef, $name);
   is_deeply($skv->get("virgin"), undef, $name);
@@ -123,38 +135,13 @@ sub test_setget {
 
   foreach (sort keys %data) {
     push @keys, $_;
-    $skv->set($_, \$data{$_});
+    $skv->set($_, $refmaker->($data{$_}));
   }
   foreach (reverse sort keys %data) {
-    is_deeply( $skv->get($_), \$data{$_}, $name );
+    is_deeply( $skv->get($_), $refmaker->($data{$_}), $name );
   }
 
   return \@keys;
-}
-
-sub test_setget_mysql {
-  my ($name, $skv) = @_;
-
-  is_deeply($skv->get("virgin"), undef, $name);
-  $skv->set("foo", ["bar"]);
-  is_deeply($skv->get("foo"), ["bar"], $name);
-  is_deeply($skv->get("foo"), ["bar"], $name);
-  $skv->set("foo", ["bar2"]);
-  is_deeply($skv->get("foo"), ["bar2"], $name);
-  $skv->delete("foo");
-  is_deeply($skv->get("foo"), undef, $name);
-  is_deeply($skv->get("virgin"), undef, $name);
-
-  srand(0);
-  # using a 16 byte key by default.
-  my %data = map {(substr(rand(), 0, 16), rand())} 0..1000;
-
-  foreach (sort keys %data) {
-    $skv->set($_, [$data{$_}]);
-  }
-  foreach (reverse sort keys %data) {
-    is_deeply( $skv->get($_), [$data{$_}], $name );
-  }
 }
 
 
@@ -181,10 +168,14 @@ sub simple_test_one_server_ketama {
   #isa_ok($_, "ShardedKV::Storage::Memory") foreach values %{$skv->storages};
 
   my $keys;
-  if (grep $_->isa("ShardedKV::Storage::MySQL"), values %{$skv->storages}) {
-    test_setget_mysql("one server mysql", $skv);
+  if (grep $_->isa("ShardedKV::Storage::Redis::Hash"), values %{$skv->storages}) {
+    $keys = test_setget("one server redis hash", $skv, sub {return +{"somekey" => $_[0]}});
+  } elsif (grep $_->isa("ShardedKV::Storage::MySQL"), values %{$skv->storages}) {
+    $keys = test_setget("one server mysql", $skv, sub {return [@_]});
+  } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::String")) {
+    $keys = test_setget("one server redis string", $skv, sub {\$_[0]});
   } else {
-    $keys = test_setget("one server", $skv);
+    $keys = test_setget("one server memory", $skv, sub {return \$_[0]});
   }
 
   if (ref($keys) eq 'ARRAY') {
@@ -192,15 +183,13 @@ sub simple_test_one_server_ketama {
   }
 }
 
-sub simple_test_five_servers_ketama {
+sub simple_test_multiple_servers_ketama {
   my $storage_maker = shift;
 
   my $continuum_spec = [
     ["server1", 100],
-    ["server2", 150],
+    ["server2", 15],
     ["server3", 200],
-    ["server4", 15],
-    ["server5", 120],
   ];
   my $continuum = ShardedKV::Continuum::Ketama->new(from => $continuum_spec);
 
@@ -217,12 +206,15 @@ sub simple_test_five_servers_ketama {
   is(ref($skv->storages), "HASH");
   #isa_ok($_, "ShardedKV::Storage::Memory") foreach values %{$skv->storages};
 
-  my $is_mysql = (values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::MySQL");
   my $keys;
-  if (not $is_mysql) {
-    $keys = test_setget("five servers", $skv);
-  } else { # mysql
-    test_setget_mysql("five servers mysql", $skv);
+  if ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::Hash")) {
+    $keys = test_setget("multiple servers redis hash", $skv, sub {+{"somekey" => $_[0]}});
+  } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::MySQL")) {
+    $keys = test_setget("multiple servers mysql", $skv, sub {[@_]});
+  } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::String")) {
+    $keys = test_setget("multiple servers redis string", $skv, sub {\$_[0]});
+  } else {
+    $keys = test_setget("multiple servers memory", $skv, sub {\$_[0]});
   }
 
   my $is_mem = (values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Memory");
