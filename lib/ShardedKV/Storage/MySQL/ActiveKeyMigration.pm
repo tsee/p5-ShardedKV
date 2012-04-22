@@ -1,11 +1,16 @@
 package ShardedKV::Storage::MySQL::ActiveKeyMigration;
 use strict;
 use warnings;
+# ABSTRACT: Simple-minded active key migration for the MySQL storage back-end
 use Scalar::Util qw(blessed);
 use Carp qw(croak);
 use Time::HiRes qw(sleep);
 
-# WARNING: Consider this untested alpha code. Use at your own risk!
+=head1 DESCRIPTION
+
+B<WARNING>: Consider this entirely untested alpha code. Use at your own risk!
+
+=cut
 
 
 # MySQL storage only!
