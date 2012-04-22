@@ -2,7 +2,7 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
-  - Basic tests for the Redis string storage.
+  - Tests for the Redis string storage.
 
 0.02      2012-04-22 11:33:31 Europe/Berlin
 
