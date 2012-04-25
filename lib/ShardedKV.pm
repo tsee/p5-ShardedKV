@@ -124,21 +124,37 @@ sub set {
 
 Given a key, deletes the key's entry from the correct shard.
 
+In a migration situation, this might attempt to delete the key from
+multiple shards, see below.
+
 =cut
 
 sub delete {
   my ($self, $key) = @_;
 
-  my $continuum = $self->{migration_continuum};
-  $continuum = $self->{continuum} if not defined $continuum;
+  my ($mig_cont, $cont) = @{$self}{qw(migration_continuum continuum)};
 
-  my $where = $continuum->choose($key);
-  my $storage = $self->{storages}{$where};
-  if (not $storage) {
-    die "Failed to find chosen storage (server) for id '$where' via key '$key'";
+  # dumb code for efficiency (otherwise, this would be a loop or in methods)
+
+  my $storages = $self->{storages};
+  my $chosen_shard;
+  # Try deleting from shard pointed at by migr. cont. first
+  if (defined $mig_cont) {
+    $chosen_shard = $mig_cont->choose($key);
+    my $storage = $storages->{ $chosen_shard };
+    die "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'"
+      if not $storage;
+    $storage->delete($key);
   }
 
-  $storage->delete($key);
+  # ALWAYS also delete from the shard pointed at by the main continuum
+  my $where = $cont->choose($key);
+  if (!$chosen_shard or $where ne $chosen_shard) {
+    my $storage = $storages->{ $where };
+    die "Failed to find chosen storage (server) for id '$where' via key '$key'"
+      if not $storage;
+    $storage->delete($key);
+  }
 }
 
 =method_public begin_migration
@@ -207,6 +223,9 @@ If there is a migration continuum, then for get requests, that continuum
 is used to find the right shard for the given key. If that shard does not
 have the key, we check the original continuum and if that points the key
 at a different shard, we query that.
+
+For delete requests, we also attempt to delete from the shard pointed to
+by the migration continuum AND the shard pointed to by the main continuum.
 
 For set requests, we always only use the shard deduced from the migration
 continuum
