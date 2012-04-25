@@ -35,7 +35,12 @@ sub choose {
   return $self->{_intspan}->lookup($location % $self->{_modulo});
 }
 
-sub serialize { encode_json( { num_significant_bits => $_[0]->num_significant_bits, from => $_[0]->_original_range_mapping } ) }
+sub serialize {
+  encode_json( {
+    num_significant_bits => $_[0]->num_significant_bits,
+    from => $_[0]->_original_range_mapping
+  } )
+}
 
 sub deserialize {
   my $class = shift;
@@ -44,7 +49,10 @@ sub deserialize {
 
 sub clone {
   my $self = shift;
-  return ref($self)->new(from => $self->_original_range_mapping);
+  return ref($self)->new(
+    num_significant_bits => $self->num_significant_bits,
+    from => $self->_original_range_mapping
+  );
 }
 
 sub extend {
@@ -61,10 +69,10 @@ sub extend {
   #   partitions) and thus simply double all ints in the ranges? How does this work with assigning
   #   actual semantics to the range numbers -- eg. for splitting into many tables in mysql?
   # - Does this allow for natural distribution of data into $n tables on $m hosts? IOW, the
-  #   value returned by choose() would be the host and the table, but the table would be identified
-  #   directly by the integer in the host range. This is a natural fit if we want to shard by
-  #   promoting a database slave to a master for a subset of the data and then simply drop
-  #   partitions or tables that are not required respectively on old or new machine.
+  #   value returned by choose() would identify the host and the table, but the table would be
+  #   identified directly by the integer in the host range. This is a natural fit if we want
+  #   to shard by promoting a database slave to a master for a subset of the data and then simply
+  #   drop partitions or tables that are not required respectively on old or new machine.
   #   GAAH.
 
   Carp::croak("StaticMapping spec must be an Array of Arrays, each inner record holding range start, end, and weight! This is not an array")
@@ -102,12 +110,14 @@ sub BUILD {
   my $from = delete $args->{from};
   if (ref($from) eq 'ARRAY') {
     my $mapping = [sort {$a->[0] <=> $b->[0]} @$from];
-    $self->{_ketama} = $self->_make_intspan($mapping);
+    $self->{_intspan} = $self->_make_intspan($mapping);
     $self->{_original_range_mapping} = $mapping;
   }
   else {
     die "Invalid 'from' specification for " . __PACKAGE__;
   }
+
+  $self->{_modulo} = 2 ** $self->num_significant_bits;
 }
 
 sub _make_intspan {
@@ -146,16 +156,38 @@ __END__
   use ShardedKV::Continuum::StaticMapping;
   my $skv = ShardedKV->new(
     continuum => ShardedKV::Continuum::StaticMapping->new(
-      num_significant_bits => 10, # 2**10 == 1024 tables/shards
+      num_significant_bits => 10, # 2**10 == up to 1024 tables/shards
       from => [
         [0, 255, "shard1"],
         [256, 511, "shard2"],
         [512, 767, "shard3"],
-        [768, 1023, "shard3"],
+        [768, 1023, "shard4"],
       ], FIXME!?
     ),
     storages => {...},
   );
+
+If you ever wanted to add shards to a cluster that uses StaticMapping,
+you can't (currently) use "extend" to add more shards, you have to do
+something like this:
+
+  # given the above example ShardedKV and StaticMapping:
+  my $cont = $skv->continuum;
+  # Let's split shard2 into shard2 and shard2-1
+  my $new_cont_spec = [
+    [0, 255, "shard1"],
+    [256, 383, "shard2"],
+    [384, 511, "shard2-1"],
+    [512, 767, "shard3"],
+    [768, 1023, "shard4"],
+  ];
+  my $migration_cont = ShardedKV::Continuum::StaticMapping->new(
+    num_significant_bits => $cont->num_significant_bits,
+    from => $new_cont_spec,
+  );
+  $skv->begin_migration($migration_cont);
+  ... passive or active migration taking place
+  $skv->end_migration();
 
 =head1 DESCRIPTION
 
