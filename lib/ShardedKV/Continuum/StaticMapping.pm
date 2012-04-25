@@ -3,6 +3,7 @@ use Moose;
 # ABSTRACT: A continuum strategy based on a simple "significant bits" static mapping
 use JSON::XS qw(encode_json decode_json);
 use Array::IntSpan;
+use POSIX ();
 
 with 'ShardedKV::Continuum';
 
@@ -15,6 +16,11 @@ has 'num_significant_bits' => (
 has '_modulo' => (
    is => 'ro',
    isa => 'Int',
+);
+
+has '_min_key_length' => (
+  is => 'ro',
+  isa => 'Int',
 );
 
 has '_original_range_mapping' => (
@@ -30,6 +36,9 @@ has '_intspan' => (
 # bypassing accessors, hot path
 sub choose {
   my ($self, $key) = @_;
+
+  die "Invalid key length: Need at least $self->{_min_key_length} bytes"
+    if length($key) < $self->{_min_key_length};
 
   my ($location) = unpack("V", $key);
   return $self->{_intspan}->lookup($location % $self->{_modulo});
@@ -116,8 +125,9 @@ sub BUILD {
   else {
     die "Invalid 'from' specification for " . __PACKAGE__;
   }
-
-  $self->{_modulo} = 2 ** $self->num_significant_bits;
+  my $bits = $self->num_significant_bits;
+  $self->{_min_key_length} = POSIX::ceil($bits/8);
+  $self->{_modulo} = 2 ** $bits;
 }
 
 sub _make_intspan {
@@ -186,11 +196,22 @@ something like this:
     from => $new_cont_spec,
   );
   $skv->begin_migration($migration_cont);
-  ... passive or active migration taking place
+  ... passive or active migration taking place from shard2 to shard2-1...
   $skv->end_migration();
 
 =head1 DESCRIPTION
 
+A sharding strategy that skips the consistent hashing step and simply uses
+the first N bits of the key to decide which shard the key falls in.
+
+B<Do not use this sharding strategy unless your key space is naturally
+evenly populated. This is generally only true if you use some sort of
+randomly generated key WHOSE RANDOMNESS YOU CAN RELY ON. Do realize that if
+an untrusted client or component has the ability to choose its own key, then
+this sharding strategy opens up a denial of service attack vector by
+defeating your sharding altogether.>
+
+If in doubt, use L<ShardedKV::Continuum::Ketama> instead.
 
 =head1 SEE ALSO
 
