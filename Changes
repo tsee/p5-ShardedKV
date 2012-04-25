@@ -2,6 +2,9 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
+  - delete() now handles migrations correctly.
+  - Prototype StaticMapping sharding strategy
+
 0.03      2012-04-22 20:20:17 Europe/Berlin
 
   - Tests for the Redis string storage.
