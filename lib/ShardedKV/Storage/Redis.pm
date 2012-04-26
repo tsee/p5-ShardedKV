@@ -54,7 +54,8 @@ has 'redis_master' => (
 
 =attribute_public expiration_time
 
-Key expiration time to use in seconds.
+Base key expiration time to use in seconds.
+Defaults to undef / not expiring at all.
 
 =cut
 
@@ -62,6 +63,21 @@ has 'expiration_time' => ( # in seconds
   is => 'rw',
   #isa => 'Num',
 );
+
+=attribute_public expiration_time_jitter
+
+Additional random jitter to add to the expiration time.
+Defaults to 0. Don't set to undef to disable, set to 0
+to disable.
+
+=cut
+
+has 'expiration_time_jitter' => ( # in seconds
+  is => 'rw',
+  #isa => 'Num',
+  default => 0,
+);
+
 
 =attribute_public database_number
 

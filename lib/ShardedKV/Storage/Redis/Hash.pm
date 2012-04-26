@@ -25,7 +25,11 @@ sub set {
   my $rv = $r->hmset($key, %$value_ref);
 
   my $expire = $self->expiration_time;
-  $r->expire($key, $expire) if $expire;
+  if (defined $expire) {
+    $r->pexpire(
+      $key, int(1000*($expire+rand($self->expiration_time_jitter)))
+    );
+  }
 
   return $rv;
 }

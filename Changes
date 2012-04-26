@@ -3,6 +3,7 @@ Revision history for Perl extension Foo.
 {{$NEXT}}
 
   - POD fixes.
+  - Optional jitter added to Redis expiration time.
 
 0.05      2012-04-26 08:03:10 Europe/Berlin
 
