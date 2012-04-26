@@ -65,5 +65,6 @@ See L<ShardedKV::Continuum::Ketama> for an example.
 =for :list
 * L<ShardedKV>
 * L<ShardedKV::Continuum::Ketama>
+* L<ShardedKV::Continuum::StaticMapping>
 
 =cut

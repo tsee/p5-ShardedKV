@@ -331,6 +331,7 @@ logic before using it. More on that below.
 * L<ShardedKV::Continuum::Ketama>
 * L<Algorithm::ConsistentHash::Ketama>
 * L<https://github.com/RJ/ketama>
+* L<ShardedKV::Continuum::StaticMapping>
 
 =head1 ACKNLOWLEDGMENT
 

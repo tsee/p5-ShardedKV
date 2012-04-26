@@ -2,15 +2,15 @@ package ShardedKV::Storage;
 use Moose::Role;
 # ABSTRACT: Role for classes implementing storage backends
 
-=role_requires get
+=role_require get
 
 TODO
 
-=role_requires set
+=role_require set
 
 TODO
 
-=role_requires delete
+=role_require delete
 
 TODO
 
