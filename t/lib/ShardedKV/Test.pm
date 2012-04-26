@@ -56,9 +56,13 @@ SCOPE: { # mysql
     $itable ||= 1;
     my $table_name = "KVShardTable_$itable";
     note("Creating test shard table $table_name");
+    # We set the col types since the timestamp will not roundtrip
+    # nicely as a string
     my $st = ShardedKV::Storage::MySQL->new(
       mysql_master_connector => \&mysql_connect_hook,
       table_name => $table_name,
+      value_col_names => [qw(val last_change)],
+      value_col_types => ['MEDIUMBLOB NOT NULL', 'INTEGER UNSIGNED NOT NULL'],
     );
     $st->prepare_table or die "Failed to set up shard table for shard $itable";
     $itable++;
@@ -171,7 +175,7 @@ sub simple_test_one_server_ketama {
   if (grep $_->isa("ShardedKV::Storage::Redis::Hash"), values %{$skv->storages}) {
     $keys = test_setget("one server redis hash", $skv, sub {return +{"somekey" => $_[0]}});
   } elsif (grep $_->isa("ShardedKV::Storage::MySQL"), values %{$skv->storages}) {
-    $keys = test_setget("one server mysql", $skv, sub {return [@_]});
+    $keys = test_setget("one server mysql", $skv, sub {return [@_, 0]});
   } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::String")) {
     $keys = test_setget("one server redis string", $skv, sub {\$_[0]});
   } else {
@@ -210,7 +214,7 @@ sub simple_test_multiple_servers_ketama {
   if ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::Hash")) {
     $keys = test_setget("multiple servers redis hash", $skv, sub {+{"somekey" => $_[0]}});
   } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::MySQL")) {
-    $keys = test_setget("multiple servers mysql", $skv, sub {[@_]});
+    $keys = test_setget("multiple servers mysql", $skv, sub {[@_, 0]});
   } elsif ((values(%{$skv->storages}))[0]->isa("ShardedKV::Storage::Redis::String")) {
     $keys = test_setget("multiple servers redis string", $skv, sub {\$_[0]});
   } else {
@@ -237,7 +241,7 @@ sub extension_test_by_one_server_ketama {
   my $storage_type = shift;
 
   # yes, yes, this blows.
-  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0]]};
+  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0], 0]};
 
   my $continuum_spec = [
     ["server1", 100],
@@ -289,7 +293,7 @@ sub extension_test_by_multiple_servers_ketama {
   my $storage_type = shift;
 
   # yes, yes, this blows.
-  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0]]};
+  my $make_ref = $storage_type =~ /^(?:memory|redis_string)$/i ? sub {\$_[0]} : sub {[$_[0], 0]};
 
   my $continuum_spec = [
     ["server1", 10],

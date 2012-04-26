@@ -42,22 +42,24 @@ has 'key_col_type' => (
   default => "CHAR(16) NOT NULL",
 );
 
-#has 'timestamp_col_name' => (
-#  is => 'ro',
-#  default => "last_updated",
-#);
-#has 'timestamp_col_type' => (
-#  is => 'ro',
-#  default => "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
-#);
-
-has 'value_col_name' => (
+has 'value_col_names' => (
   is => 'ro',
-  default => 'val',
+  # isa => 'ArrayRef[Str]',
+  default => sub {[qw(val last_change)]}
 );
-has 'value_col_type' => (
+has 'value_col_types' => (
   is => 'ro',
-  default => 'MEDIUMBLOB NOT NULL',
+  # isa => 'ArrayRef[Str]',
+  default => sub {[
+    'MEDIUMBLOB NOT NULL',
+    'TIMESTAMP NOT NULL',
+    #'TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
+  ]},
+);
+has 'extra_indexes' => (
+  is => 'ro',
+  isa => 'Str',
+  default => '',
 );
 
 # Could be prepared, but that is kind of nasty wrt. reconnects, so let's not go
@@ -81,24 +83,45 @@ has 'delete_query' => (
   builder => '_make_delete_query',
 );
 
+has '_number_of_params' => (
+  is => 'ro',
+  # isa => 'Int',
+  lazy => 1,
+  builder => '_calc_no_params',
+);
+
+sub _calc_no_params {
+  my $self = shift;
+  return 1 + scalar(@{$self->value_col_names});
+}
+
 sub _make_get_query {
   my $self = shift;
+  $self->_number_of_params; # prepopulate
   my $tbl = $self->table_name;
-  my ($key_col, $v_col) = map $self->$_, qw(key_col_name value_col_name);
-  return qq{SELECT $v_col FROM $tbl WHERE $key_col = ? LIMIT 1};
+  my ($key_col, $v_cols) = map $self->$_, qw(key_col_name value_col_names);
+  my $v_col_str = join ',', @$v_cols;
+  return qq{SELECT $v_col_str FROM $tbl WHERE $key_col = ? LIMIT 1};
 }
 sub _make_set_query {
   my $self = shift;
   my $tbl = $self->table_name;
-  my ($key_col, $v_col) = map $self->$_, qw(key_col_name value_col_name);
-  return qq{
-    INSERT INTO $tbl ($key_col, $v_col) VALUES (?, ?)
+  my ($key_col, $v_cols) = map $self->$_, qw(key_col_name value_col_names);
+  my $vcol_str = join ", ", @$v_cols;
+  my $vcol_assign_str = '';
+  $vcol_assign_str .= "$_ = VALUES($_)," for @$v_cols;
+  chop $vcol_assign_str;
+  my $qs = join( ',', ('?') x $self->_number_of_params );
+  my $q = qq{
+    INSERT INTO $tbl ($key_col, $vcol_str) VALUES ($qs)
     ON DUPLICATE KEY UPDATE
-    $v_col = VALUES($v_col)
+    $vcol_assign_str
   };
+  return $q;
 }
 sub _make_delete_query {
   my $self = shift;
+  $self->_number_of_params; # prepopulate
   my $tbl = $self->table_name;
   my $key_col = $self->key_col_name;
   return qq{DELETE FROM $tbl WHERE $key_col = ? LIMIT 1};
@@ -106,19 +129,28 @@ sub _make_delete_query {
 
 sub prepare_table {
   my $self = shift;
+  $self->_number_of_params; # prepopulate
   my $tbl = $self->table_name;
-  my ($key_col, $key_type, $v_col, $v_type)
-    = map $self->$_, qw(key_col_name key_col_type value_col_name value_col_type);
-  $self->get_master_dbh->do(
-    qq{
+  my ($key_col, $key_type, $v_cols, $v_types)
+    = map $self->$_, qw(key_col_name key_col_type value_col_names value_col_types);
+  my @vcoldefs = map "$v_cols->[$_] $v_types->[$_]", 0..$#$v_cols;
+  my $vcol_str = join ",\n", @vcoldefs;
+  my $extra_indexes = $self->extra_indexes;
+  if (not defined $extra_indexes or $extra_indexes !~ /\S/) {
+    $extra_indexes = '';
+  }
+  else {
+    $extra_indexes = ",\n$extra_indexes";
+  }
+  my $q = qq{
       CREATE TABLE IF NOT EXISTS $tbl (
         $key_col $key_type,
-        $v_col $v_type,
+        $vcol_str,
         PRIMARY KEY($key_col)
+        $extra_indexes
       ) ENGINE=InnoDb
-    },
-    undef,
-  );
+  };
+  $self->get_master_dbh->do($q);
 }
 
 # Might not reconnect if the mysql_master_connector code ref just returns
@@ -152,7 +184,11 @@ sub get {
 sub set {
   my ($self, $key, $value_ref) = @_;
 
-  my $rv = $self->get_master_dbh->do($self->set_query, undef, $key, @$value_ref);
+  my $set_query = $self->set_query;
+  Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
+    if not scalar(@$value_ref) == $self->{_number_of_params}-1;
+
+  my $rv = $self->get_master_dbh->do($set_query, undef, $key, @$value_ref);
   return $rv ? 1 : 0;
 }
 
