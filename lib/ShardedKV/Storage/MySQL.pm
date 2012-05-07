@@ -24,7 +24,9 @@ has 'mysql_connection' => (
 
 sub _make_master_conn {
   my $self = shift;
-  return $self->mysql_master_connector->();
+  my $dbh = $self->mysql_master_connector->();
+  $dbh->{RaiseError} = 1 if $dbh;
+  return $dbh;
 }
 
 has 'table_name' => (
@@ -177,7 +179,21 @@ sub get_master_dbh {
 sub get {
   my ($self, $key) = @_;
 
-  my $rv = $self->get_master_dbh->selectall_arrayref($self->get_query, undef, $key);
+  my $rv;
+  while (1) {
+    my $dbh = $self->get_master_dbh;
+    eval {
+      $rv = $dbh->selectall_arrayref($self->get_query, undef, $key);
+      1
+    } or do {
+      my $err = $@ || 'Zombie error';
+      $self->refresh_connection, redo
+        if $err =~ /MySQL server has gone away/i;
+      die $err;
+    };
+    last;
+  }
+
   return ref($rv) ? $rv->[0] : undef;
 }
 
@@ -188,14 +204,41 @@ sub set {
   Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
     if not scalar(@$value_ref) == $self->{_number_of_params}-1;
 
-  my $rv = $self->get_master_dbh->do($set_query, undef, $key, @$value_ref);
+  my $rv;
+  while (1) {
+    my $dbh = $self->get_master_dbh;
+    eval {
+      $rv = $dbh->do($set_query, undef, $key, @$value_ref);
+      1
+    } or do {
+      my $err = $@ || 'Zombie error';
+      $self->refresh_connection, redo
+        if $err =~ /MySQL server has gone away/i;
+      die $err;
+    };
+    last;
+  }
+
   return $rv ? 1 : 0;
 }
 
 sub delete {
   my ($self, $key) = @_;
 
-  my $rv = $self->get_master_dbh->do($self->delete_query, undef, $key);
+  my $rv;
+  while (1) {
+    my $dbh = $self->get_master_dbh;
+    eval {
+      $rv = $dbh->do($self->delete_query, undef, $key);
+      1
+    } or do {
+      my $err = $@ || 'Zombie error';
+      $self->refresh_connection, redo
+        if $err =~ /MySQL server has gone away/i;
+      die $err;
+    };
+    last;
+  }
   return $rv ? 1 : 0;
 }
 
