@@ -45,10 +45,15 @@ SCOPE: { # mysql
 
   my $shared_connection;
   sub mysql_connect_hook {
-    return $shared_connection if $shared_connection;
     require DBI;
     require DBD::mysql;
-    return( $shared_connection = DBI->connect(get_mysql_conf()) );
+
+    undef($shared_connection) if $shared_connection and not eval {$shared_connection->ping};
+    return $shared_connection if $shared_connection;
+    $shared_connection = DBI->connect(get_mysql_conf());
+    # low WAIT_TIMEOUT for manual testing of the connect retry logic
+    #$shared_connection->do("SET WAIT_TIMEOUT=5");
+    return $shared_connection;
   }
 
   my $itable;
