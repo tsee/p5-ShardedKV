@@ -2,6 +2,9 @@ package ShardedKV::Storage::MySQL;
 use Moose;
 # ABSTRACT: MySQL storage backend for ShardedKV
 
+use Time::HiRes qw(sleep);
+use Carp ();
+
 with 'ShardedKV::Storage';
 
 has 'mysql_master_connector' => (
@@ -22,10 +25,15 @@ has 'mysql_connection' => (
   builder => '_make_master_conn',
 );
 
+
 sub _make_master_conn {
   my $self = shift;
   my $dbh = $self->mysql_master_connector->();
-  $dbh->{RaiseError} = 1 if $dbh;
+  if ($dbh) {
+    $dbh->{RaiseError} = 1;
+    $dbh->{PrintError} = 0;
+    #$dbh->{AutoCommit} = 1;
+  }
   return $dbh;
 }
 
@@ -90,6 +98,19 @@ has '_number_of_params' => (
   # isa => 'Int',
   lazy => 1,
   builder => '_calc_no_params',
+);
+
+has 'max_num_reconnect_attempts' => (
+  is => 'rw',
+  isa => 'Int',
+  default => 5,
+);
+
+# Note that exponential back-off is on by default
+has 'reconnect_interval' => (
+  is => 'rw',
+  isa => 'Num',
+  default => 1,
 );
 
 sub _calc_no_params {
@@ -176,69 +197,53 @@ sub get_master_dbh {
   return $master_dbh;
 }
 
-sub get {
-  my ($self, $key) = @_;
+sub _run_sql {
+  my ($self, $method, $query, @args) = @_;
 
+  my $iconn;
   my $rv;
   while (1) {
     my $dbh = $self->get_master_dbh;
     eval {
-      $rv = $dbh->selectall_arrayref($self->get_query, undef, $key);
+      $rv = $dbh->$method($query, @args);
       1
     } or do {
       my $err = $@ || 'Zombie error';
-      $self->refresh_connection, redo
-        if $err =~ /MySQL server has gone away/i;
-      die $err;
+      ++$iconn;
+      if ($err =~ /MySQL server has gone away/i
+          and $iconn <= $self->max_num_reconnect_attempts)
+      {
+        sleep($self->reconnect_interval * 2 ** ($iconn-2)) if $iconn > 1;
+        $self->refresh_connection;
+        redo;
+      }
+      Carp::confess("Despite trying hard: $err");
     };
     last;
   }
 
+  return $rv;
+}
+
+sub get {
+  my ($self, $key) = @_;
+  my $rv = $self->_run_sql('selectall_arrayref', $self->get_query, undef, $key);
   return ref($rv) ? $rv->[0] : undef;
 }
 
 sub set {
   my ($self, $key, $value_ref) = @_;
 
-  my $set_query = $self->set_query;
   Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
     if not scalar(@$value_ref) == $self->{_number_of_params}-1;
 
-  my $rv;
-  while (1) {
-    my $dbh = $self->get_master_dbh;
-    eval {
-      $rv = $dbh->do($set_query, undef, $key, @$value_ref);
-      1
-    } or do {
-      my $err = $@ || 'Zombie error';
-      $self->refresh_connection, redo
-        if $err =~ /MySQL server has gone away/i;
-      die $err;
-    };
-    last;
-  }
-
+  my $rv = $self->_run_sql('do', $self->set_query, undef, $key, @$value_ref);
   return $rv ? 1 : 0;
 }
 
 sub delete {
   my ($self, $key) = @_;
-
-  my $rv;
-  while (1) {
-    my $dbh = $self->get_master_dbh;
-    eval {
-      $rv = $dbh->do($self->delete_query, undef, $key);
-      1
-    } or do {
-      my $err = $@ || 'Zombie error';
-      $self->refresh_connection, redo
-        if $err =~ /MySQL server has gone away/i;
-      die $err;
-    };
-    last;
-  }
+  my $rv = $self->_run_sql('do', $self->delete_query, undef, $key);
   return $rv ? 1 : 0;
 }
 
