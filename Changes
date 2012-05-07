@@ -2,6 +2,8 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
+  - MySQL storage: reconnect logic (with exp. backoff)
+
 0.08      2012-04-26 16:52:51 Europe/Berlin
 
   - Ooops, lose the Redis cfg that will make tests fail.
