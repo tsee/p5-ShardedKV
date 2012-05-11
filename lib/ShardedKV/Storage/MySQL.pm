@@ -217,10 +217,15 @@ has '_number_of_params' => (
   builder => '_calc_no_params',
 );
 
+sub BUILD {
+  $_[0]->_number_of_params;
+};
+
 sub _calc_no_params {
   my $self = shift;
   return 1 + scalar(@{$self->value_col_names});
 }
+
 
 sub _make_get_query {
   my $self = shift;

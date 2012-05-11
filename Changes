@@ -2,6 +2,8 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
+  - Minor MySQL storage fixup
+
 0.10      2012-05-08 09:43:54 Europe/Berlin
 
   - MySQL storage: more documentation and minor
