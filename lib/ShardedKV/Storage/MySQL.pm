@@ -346,7 +346,7 @@ sub set {
   my ($self, $key, $value_ref) = @_;
 
   Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
-    if not scalar(@$value_ref) == $self->{_number_of_params}-1;
+    if not scalar(@$value_ref) == $self->_number_of_params-1;
 
   my $rv = $self->_run_sql('do', $self->_set_query, undef, $key, @$value_ref);
   return $rv ? 1 : 0;
