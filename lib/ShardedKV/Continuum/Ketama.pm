@@ -71,7 +71,8 @@ sub _make_ketama {
   my $spec = shift;
   my $ketama = Algorithm::ConsistentHash::Ketama->new;
   Carp::croak("Ketama spec must be an Array of Arrays, each inner record holding key and weight! This is not an array")
-    if not ref($spec) eq 'ARRAY';
+    if not ref($spec) eq 'ARRAY'
+    or @$spec == 0;
   foreach my $elem (@$spec) {
     Carp::croak("Ketama spec must be an Array of Arrays, each inner record "
                 . "holding key and weight! This particular record is not an array or does not hold two elements")
