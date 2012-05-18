@@ -52,11 +52,17 @@ has '_mysql_connection' => (
 
 sub _make_master_conn {
   my $self = shift;
+  my $logger = $self->logger;
+  $logger->debug("Getting master connection") if $logger;
   my $dbh = $self->mysql_master_connector->();
   if ($dbh) {
+    $logger->debug("Get master connection") if $logger;
     $dbh->{RaiseError} = 1;
     $dbh->{PrintError} = 0;
     #$dbh->{AutoCommit} = 1;
+  }
+  else {
+    $logger->warn("Failed to get master connection") if $logger;
   }
   return $dbh;
 }
@@ -272,7 +278,12 @@ sub _make_get_query {
   my $tbl = $self->table_name;
   my ($key_col, $v_cols) = map $self->$_, qw(key_col_name value_col_names);
   my $v_col_str = join ',', @$v_cols;
-  return qq{SELECT $v_col_str FROM $tbl WHERE $key_col = ? LIMIT 1};
+  my $q = qq{SELECT $v_col_str FROM $tbl WHERE $key_col = ? LIMIT 1};
+
+  my $logger = $self->{logger};
+  $logger->debug("Generated the following get-query:\n$q") if $logger;
+
+  return $q;
 }
 
 sub _make_set_query {
@@ -289,6 +300,10 @@ sub _make_set_query {
     ON DUPLICATE KEY UPDATE
     $vcol_assign_str
   };
+
+  my $logger = $self->{logger};
+  $logger->debug("Generated the following set-query:\n$q") if $logger;
+
   return $q;
 }
 
@@ -297,7 +312,12 @@ sub _make_delete_query {
   $self->_number_of_params; # prepopulate
   my $tbl = $self->table_name;
   my $key_col = $self->key_col_name;
-  return qq{DELETE FROM $tbl WHERE $key_col = ? LIMIT 1};
+  my $q = qq{DELETE FROM $tbl WHERE $key_col = ? LIMIT 1};
+
+  my $logger = $self->{logger};
+  $logger->debug("Generated the following delete-query:\n$q") if $logger;
+
+  return $q;
 }
 
 sub prepare_table {
@@ -366,6 +386,7 @@ sub get_master_dbh {
   if (not defined $master_dbh) {
     die "Failed to get connection to mysql!";
   }
+
   return $master_dbh;
 }
 
