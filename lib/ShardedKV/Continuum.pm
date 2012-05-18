@@ -2,6 +2,8 @@ package ShardedKV::Continuum;
 use Moose::Role;
 # ABSTRACT: The continuum role
 
+with 'ShardedKV::HasLogger';
+
 =role_require choose
 
 Given a key name, must return the name of the shard that

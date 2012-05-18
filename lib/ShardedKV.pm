@@ -50,6 +50,18 @@ has 'storages' => (
 );
 
 
+=attribute_public logger
+
+If set, this must be a user-supplied object that implements
+a certain number of methods which are called throughout ShardedKV
+for logging/debugging purposes. See L</LOGGING> for details.
+
+=cut
+
+has 'logger' => (
+  is => 'rw',
+);
+
 =method_public get
 
 Given a key, fetches the value for that key from the correct shard
@@ -70,11 +82,15 @@ sub get {
 
   # dumb code for efficiency (otherwise, this would be a loop or in methods)
 
+  my $logger = $self->{logger};
+  my $do_debug = ($logger and $logger->is_debug) ? 1 : 0;
+
   my $storages = $self->{storages};
   my $chosen_shard;
   my $value_ref;
   if (defined $mig_cont) {
     $chosen_shard = $mig_cont->choose($key);
+    $logger->debug("get()using migration continuum, got storage '$chosen_shard'") if $do_debug;
     my $storage = $storages->{ $chosen_shard };
     die "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'"
       if not $storage;
@@ -83,6 +99,7 @@ sub get {
 
   if (not defined $value_ref) {
     my $where = $cont->choose($key);
+    $logger->debug("get()using regular continuum, got storage '$where'") if $do_debug;
     if (!$chosen_shard or $where ne $chosen_shard) {
       my $storage = $storages->{ $where };
       die "Failed to find chosen storage (server) for id '$where' via key '$key'"
@@ -136,11 +153,15 @@ sub delete {
 
   # dumb code for efficiency (otherwise, this would be a loop or in methods)
 
+  my $logger = $self->{logger};
+  my $do_debug = ($logger and $logger->is_debug) ? 1 : 0;
+
   my $storages = $self->{storages};
   my $chosen_shard;
   # Try deleting from shard pointed at by migr. cont. first
   if (defined $mig_cont) {
     $chosen_shard = $mig_cont->choose($key);
+    $logger->debug("Deleting from migration continuum, got storage '$chosen_shard'") if $do_debug;
     my $storage = $storages->{ $chosen_shard };
     die "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'"
       if not $storage;
@@ -149,6 +170,7 @@ sub delete {
 
   # ALWAYS also delete from the shard pointed at by the main continuum
   my $where = $cont->choose($key);
+  $logger->debug("Deleting from continuum, got storage '$where'") if $do_debug;
   if (!$chosen_shard or $where ne $chosen_shard) {
     my $storage = $storages->{ $where };
     die "Failed to find chosen storage (server) for id '$where' via key '$key'"
@@ -238,9 +260,13 @@ continuum and set the C<migration_continuum> property to undef.
 sub begin_migration {
   my ($self, $migration_continuum) = @_;
 
+  my $logger = $self->{logger};
   if ($self->migration_continuum) {
-    Carp::croak("Cannot start a continuum migration in the middle of another migration");
+    my $err = "Cannot start a continuum migration in the middle of another migration";
+    $logger->fatal($err) if $logger;
+    Carp::croak($err);
   }
+  $logger->info("Starting continuum migration") if $logger;
 
   $self->migration_continuum($migration_continuum);
 }
@@ -253,6 +279,9 @@ See the C<begin_migration> docs above.
 
 sub end_migration {
   my ($self) = @_;
+  my $logger = $self->{logger};
+  $logger->info("Ending continuum migration") if $logger;
+
   $self->continuum($self->migration_continuum);
   delete $self->{migration_continuum};
 }
@@ -313,7 +342,35 @@ to add one or more servers to the continuum and use passive key migration
 to extend capacity without downtime. Do make it a point to understand the
 logic before using it. More on that below.
 
-=cut
+=head2 LOGGING
+
+ShardedKV allows instrumentation for logging and debugging by setting
+the C<logger> attribute of the main ShardedKV object, and/or its
+continuum and/or any or all storage sub-objects. If set, the
+C<logger> attribute must be an object implementing the following methods:
+
+=for :list
+* trace
+* debug
+* info
+* warn
+* error
+* fatal
+
+which take a string parameter that is to be logged.
+These logging levels might be familiar since they are taken from L<Log::Log4perl>,
+which means that you can use a C<Log::Log4perl::Logger> object here.
+
+Additionally, the following methods must return whether or not the given log
+level is enabled, to potentially avoid costly construction of log messages:
+
+=for :list
+* is_trace
+* is_debug
+* is_info
+* is_warn
+* is_error
+* is_fatal
 
 =head1 SEE ALSO
 

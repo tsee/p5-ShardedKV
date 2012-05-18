@@ -19,7 +19,13 @@ sub choose {
   $_[0]->_ketama->hash($_[1])
 }
 
-sub serialize { encode_json( $_[0]->_orig_continuum_spec ) }
+# FIXME losing logger
+sub serialize {
+  my $self = shift;
+  my $logger = $self->{logger};
+  $logger->debug("Serializing continuum, this will lose the logger!") if $logger;
+  encode_json( $self->_orig_continuum_spec )
+}
 
 sub deserialize {
   my $class = shift;
@@ -28,7 +34,9 @@ sub deserialize {
 
 sub clone {
   my $self = shift;
-  return ref($self)->new(from => $self->_orig_continuum_spec);
+  my $clone = ref($self)->new(from => $self->_orig_continuum_spec);
+  $clone->{logger} = $self->{logger};
+  return $clone;
 }
 
 sub extend {

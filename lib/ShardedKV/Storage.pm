@@ -2,6 +2,8 @@ package ShardedKV::Storage;
 use Moose::Role;
 # ABSTRACT: Role for classes implementing storage backends
 
+with 'ShardedKV::HasLogger';
+
 =role_require get
 
 TODO
