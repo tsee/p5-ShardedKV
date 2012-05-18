@@ -78,7 +78,8 @@ has 'table_name' => (
 
 The name of the column to be used for the key.
 If C<ShardedKV::Storage::MySQL> creates the shard table for you, then
-this column is also used as the primary key.
+this column is also used as the primary key unless
+C<auto_increment_col_name> is set (see below).
 
 There can only be one key column.
 
@@ -95,13 +96,49 @@ has 'key_col_name' => (
 
 The MySQL type of the key column.
 
-Defaults to 'CHAR(16) NOT NULL'.
+Defaults to 'VARBINARY(16) NOT NULL'.
 
 =cut
 
 has 'key_col_type' => (
   is => 'ro',
-  default => "CHAR(16) NOT NULL",
+  default => "VARBINARY(16) NOT NULL",
+);
+
+=attribute_public auto_increment_col_name
+
+The name of the column to be used for the auto-increment pimrary key.
+This is a virtually unused (by ShardedKV) column that, IF DEFINED, will
+be used as an auto-increment primary key. It is not the column used to
+fetch rows by, but rather facilitates faster insertion of new records
+by allowing append instead of insertion at random order within the PK
+tree.
+
+If C<ShardedKV::Storage::MySQL> creates the shard table for you, then
+this column is also used as the primary key.
+
+There can only be one auto-increment key column.
+
+Defaults to 'id'.
+
+=cut
+
+has 'auto_increment_col_name' => (
+  is => 'ro',
+  default => 'id',
+);
+
+=attribute_public auto_increment_col_type
+
+The MySQL type of the auto increment column.
+
+Defaults to 'BIGINT UNSIGNED NOT NULL AUTO_INCREMENT'.
+
+=cut
+
+has 'auto_increment_col_type' => (
+  is => 'ro',
+  default => "BIGINT UNSIGNED NOT NULL AUTO_INCREMENT",
 );
 
 =attribute_public value_col_names
@@ -197,12 +234,14 @@ has '_get_query' => (
   lazy => 1,
   builder => '_make_get_query',
 );
+
 has '_set_query' => (
   is => 'ro',
   isa => 'Str',
   lazy => 1,
   builder => '_make_set_query',
 );
+
 has '_delete_query' => (
   is => 'ro',
   isa => 'Str',
@@ -265,8 +304,11 @@ sub prepare_table {
   my $self = shift;
   $self->_number_of_params; # prepopulate
   my $tbl = $self->table_name;
-  my ($key_col, $key_type, $v_cols, $v_types)
-    = map $self->$_, qw(key_col_name key_col_type value_col_names value_col_types);
+  my ($key_col, $key_type, $ainc_col, $ainc_type, $v_cols, $v_types)
+    = map $self->$_,
+      qw(key_col_name key_col_type
+         auto_increment_col_name auto_increment_col_type
+         value_col_names value_col_types);
   my @vcoldefs = map "$v_cols->[$_] $v_types->[$_]", 0..$#$v_cols;
   my $vcol_str = join ",\n", @vcoldefs;
   my $extra_indexes = $self->extra_indexes;
@@ -276,14 +318,29 @@ sub prepare_table {
   else {
     $extra_indexes = ",\n$extra_indexes";
   }
+  my $pk;
+  my $ainc_col_spec = '';
+  if (defined $ainc_col) {
+    $pk = "PRIMARY KEY($ainc_col),\n"
+          . "UNIQUE KEY ($key_col)";
+    $ainc_col_spec = "$ainc_col $ainc_type,";
+  }
+  else {
+    $pk = "PRIMARY KEY($key_col)";
+  }
   my $q = qq{
       CREATE TABLE IF NOT EXISTS $tbl (
+        $ainc_col_spec
         $key_col $key_type,
         $vcol_str,
-        PRIMARY KEY($key_col)
+        $pk
         $extra_indexes
       ) ENGINE=InnoDb
   };
+
+  my $logger = $self->logger;
+  $logger->info("Creating shard storage table:\n$q") if $logger;
+
   $self->get_master_dbh->do($q);
 }
 
@@ -291,6 +348,10 @@ sub prepare_table {
 # a cached connection.
 sub refresh_connection {
   my $self = shift;
+
+  my $logger = $self->{logger};
+  $logger->info("Refreshing mysql connection") if $logger;
+
   delete $self->{_mysql_connection};
   return $self->_mysql_connection;
 }

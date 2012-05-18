@@ -3,6 +3,7 @@ Revision history for Perl extension Foo.
 {{$NEXT}}
 
   - MySQL storage order of initialization bug fix.
+  - MySQL storage support for auto_increment PK
   - Ketama continuum: guard against bad specs
   - Introducing the HasLogger role, adding logging
     to various bits of code.
