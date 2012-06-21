@@ -2,6 +2,7 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
+  - More documentation
   - Require Algorithm::ConsistentHash::Ketama 0.00008
 
 0.12      2012-05-18 10:24:36 Europe/Berlin
