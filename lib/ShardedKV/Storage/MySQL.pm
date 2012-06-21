@@ -320,6 +320,14 @@ sub _make_delete_query {
   return $q;
 }
 
+=method_public prepare_table
+
+This method will generate a C<CREATE TABLE> statement from the
+various properties of the storage object and execute it on the MySQL
+server to prepare the shard table.
+
+=cut
+
 sub prepare_table {
   my $self = shift;
   $self->_number_of_params; # prepopulate
@@ -364,6 +372,13 @@ sub prepare_table {
   $self->get_master_dbh->do($q);
 }
 
+=method_public refresh_connection
+
+Explicitly drops the MySQL connection object and calls back into
+the provided connect handler to get a new connection.
+
+=cut
+
 # Might not reconnect if the mysql_master_connector code ref just returns
 # a cached connection.
 sub refresh_connection {
@@ -375,6 +390,13 @@ sub refresh_connection {
   delete $self->{_mysql_connection};
   return $self->_mysql_connection;
 }
+
+=method_public get_master_dbh
+
+Returns the MySQL master database handle that is in use by the
+ShardedKV storage object.
+
+=cut
 
 sub get_master_dbh {
   my $self = shift;
