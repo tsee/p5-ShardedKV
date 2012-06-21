@@ -196,6 +196,32 @@ has 'extra_indexes' => (
   default => '',
 );
 
+=attribute_public partition_stanza
+
+A stanza of SQL that is included in any generated CREATE TABLE after
+the closing brace of the main table body. This is intended for
+including table partitioning. For example, if you include a timestamp
+in the list of value columns, you could partition by year using (MySQL 5.1
+compatible):
+
+  PARTITION BY RANGE (TO_DAYS(date)) (
+    PARTITION p01 VALUES LESS THAN (TO_DAYS('2009-01-01')),
+    PARTITION p02 VALUES LESS THAN (TO_DAYS('2010-01-01')),
+    PARTITION p03 VALUES LESS THAN (TO_DAYS('2011-01-01')),
+    PARTITION p04 VALUES LESS THAN (TO_DAYS('2012-01-01')),
+    PARTITION p05 VALUES LESS THAN (MAXVALUE)
+  )
+
+Defaults to no partitioning (ie. the empty string).
+
+=cut
+
+has 'partition_stanza' => (
+  is => 'ro',
+  isa => 'Str',
+  default => '',
+);
+
 =attribute_public max_num_reconnect_attempts
 
 The maximum number of reconnect attempts that the storage object
@@ -356,6 +382,7 @@ sub prepare_table {
   else {
     $pk = "PRIMARY KEY($key_col)";
   }
+  my $partitions = $self->partition_stanza;
   my $q = qq{
       CREATE TABLE IF NOT EXISTS $tbl (
         $ainc_col_spec
@@ -364,6 +391,7 @@ sub prepare_table {
         $pk
         $extra_indexes
       ) ENGINE=InnoDb
+      $partitions
   };
 
   my $logger = $self->logger;

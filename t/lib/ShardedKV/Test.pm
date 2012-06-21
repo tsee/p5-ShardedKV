@@ -68,6 +68,15 @@ SCOPE: { # mysql
       table_name => $table_name,
       value_col_names => [qw(val last_change)],
       value_col_types => ['MEDIUMBLOB NOT NULL', 'INTEGER UNSIGNED NOT NULL'],
+      # in the test, everything ends up in the same partition, but that's ok.
+      # this is just so we can test the partition create table functionality
+      partition_stanza => qq{
+        PARTITION BY RANGE (last_change) (
+          PARTITION p01 VALUES LESS THAN (TO_DAYS('2011-01-01')),
+          PARTITION p02 VALUES LESS THAN (TO_DAYS('2012-01-01')),
+          PARTITION p03 VALUES LESS THAN (MAXVALUE)
+        )
+      },
     );
     $st->prepare_table or die "Failed to set up shard table for shard $itable";
     $itable++;
