@@ -47,6 +47,7 @@ has '_mysql_connection' => (
   is => 'rw',
   lazy => 1,
   builder => '_make_master_conn',
+  clearer => '_clear_connection',
 );
 
 
@@ -462,6 +463,11 @@ sub delete {
   return $rv ? 1 : 0;
 }
 
+sub reset_connection {
+  my ($self) = @_;
+  $self->_clear_connection();
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
@@ -499,3 +505,4 @@ single table in some schema on some database server.
 * L<DBD::mysql>
 
 =cut
+# vim: ts=2 sw=2 et

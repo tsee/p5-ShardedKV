@@ -18,7 +18,7 @@ TODO
 
 =cut
 
-requires qw(get set delete);
+requires qw(get set delete reset_connection);
 
 no Moose;
 

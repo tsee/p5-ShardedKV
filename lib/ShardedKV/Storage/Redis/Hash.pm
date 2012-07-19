@@ -1,10 +1,11 @@
 package ShardedKV::Storage::Redis::Hash;
 use Moose;
 # ABSTRACT: Storing hash values in Redis
-use parent 'ShardedKV::Storage::Redis';
 use Encode;
 use Redis;
 use Carp ();
+
+extends 'ShardedKV::Storage::Redis';
 
 sub get {
   my ($self, $key) = @_;

@@ -1,9 +1,10 @@
 package ShardedKV::Storage::Redis::String;
 use Moose;
 # ABSTRACT: Storing simple string values in Redis
-use parent 'ShardedKV::Storage::Redis';
 use Encode;
 use Redis;
+
+extends 'ShardedKV::Storage::Redis';
 
 sub get {
   my ($self, $key) = @_;

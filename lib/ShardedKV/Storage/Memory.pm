@@ -27,6 +27,9 @@ sub delete {
   return();
 }
 
+# This is a noop for the Memory storage
+sub reset_connection { }
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
@@ -50,3 +53,5 @@ Implements the C<ShardedKV::Storage> role.
 * L<ShardedKV::Storage>
 
 =cut
+
+# vim: ts=2 sw=2 et

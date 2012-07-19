@@ -21,22 +21,6 @@ has 'redis_master_str' => (
   required => 1,
 );
 
-=attribute_public redis_slave_strs
-
-Array reference of hostname:port strings representing Redis slaves
-of the master. Currently unused, will eventually be used for either
-reading or master failover.
-
-=cut
-
-# For either failover or reading => TODO might make sense to separate the two
-has 'redis_slave_strs' => (
-  is => 'ro',
-  isa => 'ArrayRef[Str]',
-  required => 1,
-  default => sub {[]},
-);
-
 =attribute_public redis_master
 
 The C<Redis> object that represents the master connection. Will be
@@ -50,6 +34,7 @@ has 'redis_master' => (
   isa => 'Redis',
   lazy => 1,
   builder => '_make_master_conn',
+  clearer => '_clear_connection',
 );
 
 =attribute_public expiration_time
@@ -115,18 +100,6 @@ sub _make_master_conn {
   return $self->_make_connection($self->redis_master_str);
 }
 
-sub _make_slave_conn {
-  my $self = shift;
-  my $conn;
-  foreach my $slave (shuffle(@{$self->redis_slave_strs})) {
-    last if eval {
-      $conn = $self->_make_connection($slave);
-    };
-  }
-  die if not $conn;
-  return $conn;
-}
-
 =method_public delete
 
 Implemented in the base class, this method deletes the given key from the Redis shard.
@@ -151,7 +124,7 @@ unsurprisingly a hash reference.
 
 sub get { die "Method get() not implemented in abstract base class" }
 
-=head2 set
+=method_public set
 
 The counterpart to C<get>. Expects values as second argument. The value must
 be of the same reference type that is returned by C<get()>.
@@ -159,6 +132,11 @@ be of the same reference type that is returned by C<get()>.
 =cut
 
 sub set { die "Method set() not implemented in abstract base class" }
+
+sub reset_connection {
+  my ($self) = @_;
+  $self->_clear_connection();
+}
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
@@ -185,3 +163,4 @@ storages for distinct Redis value types.
 * L<ShardedKV::Storage::Redis::String>
 * L<ShardedKV::Storage::Redis::Hash>
 * L<Redis>
+# vim: ts=2 sw=2 et
