@@ -5,35 +5,35 @@ use Moose;
 use Encode;
 use Redis;
 use List::Util qw(shuffle);
+use ShardedKV::Error::ConnectFail;
 
 with 'ShardedKV::Storage';
 
-=attribute_public redis_master_str
+=attribute_public redis_connect_str
 
-A hostname:port string pointing at the Redis master for this shard.
+A hostname:port string pointing at the Redis for this shard.
 Required.
 
 =cut
 
-has 'redis_master_str' => (
+has 'redis_connect_str' => (
   is => 'ro',
   isa => 'Str',
   required => 1,
 );
 
-=attribute_public redis_master
+=attribute_public redis
 
-The C<Redis> object that represents the master connection. Will be
-generated from the C<redis_master_str> attribute and may be reset/reconnected
-at any time.
+The C<Redis> object that represents the connection. Will be generated from the
+C<redis_connect_str> attribute and may be reset/reconnected at any time.
 
 =cut
 
-has 'redis_master' => (
+has 'redis' => (
   is => 'rw',
   isa => 'Redis',
   lazy => 1,
-  builder => '_make_master_conn',
+  builder => '_make_connection',
   clearer => '_clear_connection',
 );
 
@@ -46,7 +46,7 @@ Defaults to undef / not expiring at all.
 
 has 'expiration_time' => ( # in seconds
   is => 'rw',
-  #isa => 'Num',
+  isa => 'Num',
 );
 
 =attribute_public expiration_time_jitter
@@ -59,7 +59,7 @@ to disable.
 
 has 'expiration_time_jitter' => ( # in seconds
   is => 'rw',
-  #isa => 'Num',
+  isa => 'Num',
   default => 0,
 );
 
@@ -74,30 +74,31 @@ so the Redis server will use the default.
 
 has 'database_number' => (
   is => 'rw',
-  # isa => 'Int',
+  isa => 'Int',
   trigger => sub {
     my $self = shift;
-    $self->{database_number} = shift;
-    if (defined $self->{redis_master}) {
-      $self->redis_master->select($self->{database_number});
-    }
+    $self->redis->select(shift);
   },
 );
 
 sub _make_connection {
-  my ($self, $endpoint) = @_;
-  my $r = Redis->new( # dies if it can't connect!
-    server => $endpoint,
-    encoding => undef, # no automatic utf8 encoding for performance
-  );
+  my ($self) = @_;
+  my $endpoint = $self->redis_connect_str;
+  my $r = eval {
+      Redis->new( # dies if it can't connect!
+      server => $endpoint,
+      encoding => undef, # no automatic utf8 encoding for performance
+    );
+  } or do {
+    ShardedKV::Error::ConnectFail->throw({
+      endpoint => $endpoint,
+      storage_type => 'redis',
+      message => "Failed to make a connection to Redis ($endpoint)",
+    });
+  };
   my $dbno = $self->database_number;
   $r->select($dbno) if defined $dbno;
   return $r;
-}
-
-sub _make_master_conn {
-  my $self = shift;
-  return $self->_make_connection($self->redis_master_str);
 }
 
 =method_public delete
@@ -108,7 +109,7 @@ Implemented in the base class, this method deletes the given key from the Redis 
 
 sub delete {
   my ($self, $key) = @_;
-  return $self->redis_master->del($key);
+  return $self->redis->del($key);
 }
 
 =method_public get

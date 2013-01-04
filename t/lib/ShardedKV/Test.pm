@@ -101,7 +101,7 @@ SCOPE: { # redis
     $idatabase ||= 0;
     note("Setting connection to Redis db number $idatabase");
     my $st = ShardedKV::Storage::Redis::String->new(
-      redis_master_str => get_redis_conf(),
+      redis_connect_str => get_redis_conf(),
       database_number => $idatabase,
       expiration_time => 30, # 30s
     );
@@ -113,7 +113,7 @@ SCOPE: { # redis
     $idatabase ||= 0;
     note("Setting connection to Redis db number $idatabase");
     my $st = ShardedKV::Storage::Redis::Hash->new(
-      redis_master_str => get_redis_conf(),
+      redis_connect_str => get_redis_conf(),
       database_number => $idatabase,
       expiration_time => 30, # 30s
     );

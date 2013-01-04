@@ -4,16 +4,31 @@ use Moose;
 use Encode;
 use Redis;
 use Carp ();
+use ShardedKV::Error::ReadFail;
+use ShardedKV::Error::WriteFail;
 
 extends 'ShardedKV::Storage::Redis';
 
 sub get {
   my ($self, $key) = @_;
-  # fetch from master by default (TODO revisit later)
-  my $master = $self->redis_master;
-  my %hash = $master->hgetall($key);
-  #Encode::_utf8_on($$vref); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
-  return keys(%hash) ? \%hash : undef;
+  my $redis = $self->redis;
+  my $hash;
+  eval {
+    my %foo = $redis->hgetall($key);
+    if(keys %foo) {
+      $hash = \%foo;
+    }
+    1;
+  } or do {
+    my $endpoint = $self->redis_connect_str;
+    ShardedKV::Error::ReadFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'redis',
+      message => "Failed to fetch key ($key) from Redis ($endpoint): @_",
+    });
+  };
+  return $hash;
 }
 
 sub set {
@@ -22,14 +37,38 @@ sub set {
     Carp::croak("Value must be a hashref");
   }
 
-  my $r = $self->redis_master;
-  my $rv = $r->hmset($key, %$value_ref);
+  my $r = $self->redis;
+
+  my $rv = eval {
+    $r->hmset($key, %$value_ref);
+  } or do {
+    my $endpoint = $self->redis_connect_str;
+    ShardedKV::Error::WriteFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'redis',
+      operation => 'set',
+      message => "Failed to store key ($key) to Redis ($endpoint): @_",
+    });
+  };
 
   my $expire = $self->expiration_time;
   if (defined $expire) {
-    $r->pexpire(
-      $key, int(1000*($expire+rand($self->expiration_time_jitter)))
-    );
+    eval {
+      $r->pexpire(
+        $key, int(1000*($expire+rand($self->expiration_time_jitter)))
+      );
+      1;
+    } or do {
+      my $endpoint = $self->redis_connect_str;
+      ShardedKV::Error::WriteFail->throw({
+        endpoint => $endpoint,
+        key => $key,
+        storage_type => 'redis',
+        operation => 'expire',
+        message => "Failed to store key ($key) to Redis ($endpoint): @_",
+      });
+    };
   }
 
   return $rv;
@@ -72,5 +111,5 @@ actually scalar references to strings.
 * L<ShardedKV::Storage>
 * L<ShardedKV::Storage::Redis>
 * L<ShardedKV::Storage::Redis::String>
-
 =cut
+# vim: ts=2 sw=2 et

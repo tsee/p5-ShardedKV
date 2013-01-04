@@ -3,29 +3,73 @@ use Moose;
 # ABSTRACT: Storing simple string values in Redis
 use Encode;
 use Redis;
+use ShardedKV::Error::ReadFail;
+use ShardedKV::Error::WriteFail;
 
 extends 'ShardedKV::Storage::Redis';
 
 sub get {
   my ($self, $key) = @_;
-  # fetch from master by default (TODO revisit later)
-  my $master = $self->redis_master;
-  my $vref = \($master->get($key));
-  Encode::_utf8_on($$vref); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
-  return defined($$vref) ? $vref : undef;
+  my $redis = $self->redis;
+  my $str;
+  eval {
+    my $foo = $redis->get($key);
+    if(defined($foo)) {
+      $str = $foo;
+    }
+    1;
+  } or do {
+    my $endpoint = $self->redis_connect_str;
+    ShardedKV::Error::ReadFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'redis',
+      message => "Failed to fetch key ($key) from Redis ($endpoint): @_",
+    });
+  };
+  
+  if(defined($str)) {
+    Encode::_utf8_on($str); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
+    return \$str;
+  } else {
+    return undef;
+  }
 }
 
 sub set {
   my ($self, $key, $value_ref) = @_;
-  my $r = $self->redis_master;
+  my $r = $self->redis;
+
+  my $rv = eval {
+    $r->set($key, $$value_ref);
+  } or do {
+    my $endpoint = $self->redis_connect_str;
+    ShardedKV::Error::WriteFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'redis',
+      operation => 'set',
+      message => "Failed to store key ($key) to Redis ($endpoint): @_",
+    });
+  };
+
   my $expire = $self->expiration_time;
-
-  my $rv = $r->set($key, $$value_ref);
-
   if (defined $expire) {
-    $r->pexpire(
-      $key, int(1000*($expire+rand($self->expiration_time_jitter)))
-    );
+    eval {
+      $r->pexpire(
+        $key, int(1000*($expire+rand($self->expiration_time_jitter)))
+      );
+      1;
+    } or do {
+      my $endpoint = $self->redis_connect_str;
+      ShardedKV::Error::WriteFail->throw({
+        endpoint => $endpoint,
+        key => $key,
+        storage_type => 'redis',
+        operation => 'expire',
+        message => "Failed to store key ($key) to Redis ($endpoint): @_",
+      });
+    };
   }
 
   return $rv;
@@ -42,7 +86,7 @@ __END__
   use ShardedKV::Storage::Redis::String;
   ... create ShardedKV...
   my $storage = ShardedKV::Storage::Redis::String->new(
-    redis_master_str => 'redisshard1:679',
+    redis_connect_str => 'redisshard1:679',
     expiration_time => 60*60, #1h
   );
   ... put storage into ShardedKV...
@@ -70,3 +114,4 @@ actually scalar references to strings.
 * L<ShardedKV::Storage::Redis::Hash>
 
 =cut
+# vim: ts=2 sw=2 et
