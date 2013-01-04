@@ -21,5 +21,3 @@ t/XS*.o
 t/XS*.so
 ShardedKV-*/
 .build
-testmysqldsn.conf
-testredis.conf
