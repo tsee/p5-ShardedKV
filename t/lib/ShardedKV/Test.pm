@@ -43,6 +43,10 @@ SCOPE: { # mysql
     return();
   }
 
+  sub mysql_endpoint {
+    return $mysql_connect_args[0];
+  }
+
   my $shared_connection;
   sub mysql_connect_hook {
     require DBI;
@@ -64,7 +68,8 @@ SCOPE: { # mysql
     # We set the col types since the timestamp will not roundtrip
     # nicely as a string
     my $st = ShardedKV::Storage::MySQL->new(
-      mysql_master_connector => \&mysql_connect_hook,
+      mysql_connector => \&mysql_connect_hook,
+      mysql_endpoint => \&mysql_endpoint,
       table_name => $table_name,
       value_col_names => [qw(val last_change)],
       value_col_types => ['MEDIUMBLOB NOT NULL', 'INTEGER UNSIGNED NOT NULL'],
