@@ -7,7 +7,7 @@ use Carp ();
 
 with 'ShardedKV::Storage';
 
-=attribute_public mysql_master_connector
+=attribute_public mysql_connector
 
 A callback that must be supplied at object creation time. The storage
 object will invoke the callback whenever it needs to get a NEW mysql
@@ -23,16 +23,33 @@ returning a cached connection.
 
 =cut
 
-has 'mysql_master_connector' => (
-  is => 'rw',
+has 'mysql_connector' => (
+  is => 'ro',
   isa => 'CodeRef',
   required => 1,
 );
 
-=attribute_private _mysql_connection
+=attribute_public mysql_endpoint
 
-This is the private attribute holding a MySQL database handle (which was
-created using the C<mysql_master_connector>). Do not supply this at object
+A callback that should return a unique string that represents the endpoint. In
+most cases this should be a hostname to allow for debugging connection issues.
+
+The callback allows users to hook into the connection logic and update the
+string that represents the particular endpoint that this storage instance
+represents.
+
+=cut
+
+has 'mysql_endpoint' => (
+  is => 'ro',
+  isa => 'CodeRef',
+  required => 1,
+);
+
+=attribute_public mysql_connection
+
+This is the public attribute holding a MySQL database handle (which was
+created using the C<mysql_connector>). Do not supply this at object
 creation.
 
 =cut
@@ -43,27 +60,34 @@ creation.
 # above which needs to know how to obtain a new or existing connection.
 # This means that we can make each Storage::MySQL object be specific to
 # a particular table!
-has '_mysql_connection' => (
+has 'mysql_connection' => (
   is => 'rw',
   lazy => 1,
-  builder => '_make_master_conn',
-  clearer => '_clear_connection',
+  builder => 'build_mysql_connection',
+  clearer => 'clear_mysql_connection',
+  predicate => 'has_mysql_connection',
 );
 
 
-sub _make_master_conn {
+sub build_mysql_connection {
   my $self = shift;
   my $logger = $self->logger;
-  $logger->debug("Getting master connection") if $logger;
-  my $dbh = $self->mysql_master_connector->();
+  $logger->debug("Getting mysql connection") if $logger;
+  my $dbh = $self->mysql_connector->();
   if ($dbh) {
-    $logger->debug("Get master connection") if $logger;
+    $logger->debug("Get connection") if $logger;
     $dbh->{RaiseError} = 1;
     $dbh->{PrintError} = 0;
     #$dbh->{AutoCommit} = 1;
   }
   else {
-    $logger->warn("Failed to get master connection") if $logger;
+    my $endpoint = $self->mysql_endpoint->();
+    ShardedKV::Error::ConnectFail->throw({
+      endpoint => $endpoint,
+      storage_type => 'mysql',
+      message => "Failed to make a connection to MySQL ($endpoint)",
+    });
+    $logger->warn("Failed to get connection") if $logger;
   }
   return $dbh;
 }
@@ -281,7 +305,7 @@ sub _make_get_query {
   my $v_col_str = join ',', @$v_cols;
   my $q = qq{SELECT $v_col_str FROM $tbl WHERE $key_col = ? LIMIT 1};
 
-  my $logger = $self->{logger};
+  my $logger = $self->logger;
   $logger->debug("Generated the following get-query:\n$q") if $logger;
 
   return $q;
@@ -302,7 +326,7 @@ sub _make_set_query {
     $vcol_assign_str
   };
 
-  my $logger = $self->{logger};
+  my $logger = $self->logger;
   $logger->debug("Generated the following set-query:\n$q") if $logger;
 
   return $q;
@@ -370,7 +394,7 @@ sub prepare_table {
   my $logger = $self->logger;
   $logger->info("Creating shard storage table:\n$q") if $logger;
 
-  $self->get_master_dbh->do($q);
+  $self->mysql_connection->do($q);
 }
 
 =method_public refresh_connection
@@ -380,37 +404,16 @@ the provided connect handler to get a new connection.
 
 =cut
 
-# Might not reconnect if the mysql_master_connector code ref just returns
+# Might not reconnect if the mysql_connector code ref just returns
 # a cached connection.
 sub refresh_connection {
   my $self = shift;
 
-  my $logger = $self->{logger};
+  my $logger = $self->logger;
   $logger->info("Refreshing mysql connection") if $logger;
 
-  delete $self->{_mysql_connection};
-  return $self->_mysql_connection;
-}
-
-=method_public get_master_dbh
-
-Returns the MySQL master database handle that is in use by the
-ShardedKV storage object.
-
-=cut
-
-sub get_master_dbh {
-  my $self = shift;
-  # fetch from master by default (TODO revisit later)
-  my $master_dbh = $self->_mysql_connection;
-  if (not defined $master_dbh) {
-    $master_dbh = $self->refresh_connection;
-  }
-  if (not defined $master_dbh) {
-    die "Failed to get connection to mysql!";
-  }
-
-  return $master_dbh;
+  $self->clear_mysql_connection;
+  return $self->mysql_connection;
 }
 
 sub _run_sql {
@@ -419,7 +422,7 @@ sub _run_sql {
   my $iconn;
   my $rv;
   while (1) {
-    my $dbh = $self->get_master_dbh;
+    my $dbh = $self->mysql_connection;
     eval {
       $rv = $dbh->$method($query, @args);
       1
@@ -443,7 +446,19 @@ sub _run_sql {
 
 sub get {
   my ($self, $key) = @_;
-  my $rv = $self->_run_sql('selectall_arrayref', $self->_get_query, undef, $key);
+  my $rv;
+  eval {
+    $rv = $self->_run_sql('selectall_arrayref', $self->_get_query, undef, $key);
+    1;
+  } or do {
+    my $endpoint = $self->mysql_endpoint->();
+    ShardedKV::Error::ReadFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'mysql',
+      message => "Failed to fetch key ($key) from Redis ($endpoint): @_",
+    });
+  };
   return ref($rv) ? $rv->[0] : undef;
 }
 
@@ -452,8 +467,20 @@ sub set {
 
   Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
     if not scalar(@$value_ref) == $self->_number_of_params-1;
-
-  my $rv = $self->_run_sql('do', $self->_set_query, undef, $key, @$value_ref);
+  
+  my $rv;
+  eval {
+    $rv = $self->_run_sql('do', $self->_set_query, undef, $key, @$value_ref);
+    1;
+  } or do {
+    my $endpoint = $self->mysql_endpoint->();
+    ShardedKV::Error::ReadFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'mysql',
+      message => "Failed to fetch key ($key) from Redis ($endpoint): @_",
+    });
+  };
   return $rv ? 1 : 0;
 }
 
