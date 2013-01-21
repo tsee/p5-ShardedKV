@@ -209,11 +209,11 @@ Full migration example:
   # "Memory" is for testing. Mixing storages likely has weird side effects.
   my %storages = (
     shard1 => ShardedKV::Storage::Redis->new(
-      redis_master_str => 'redisserver:6379',
+      redis_connect_str => 'redisserver:6379',
       expiration_time => 60*60,
     ),
     shard2 => ShardedKV::Storage::Redis->new(
-      redis_master_str => 'redisserver:6380',
+      redis_connect_str => 'redisserver:6380',
       expiration_time => 60*60,
     ),
   );
@@ -227,7 +227,7 @@ Full migration example:
   # Oh, we need to extend it!
   # Add storages:
   $skv->storages->{shard3} = ShardedKV::Storage::Redis->new(
-    redis_master_str => 'NEWredisserver:6379',
+    redis_connect_str => 'NEWredisserver:6379',
     expiration_time => 60*60,
   );
   # ... could add more at the same time...
@@ -307,12 +307,10 @@ __END__
   # "Memory" is for testing. Mixing storages likely has weird side effects.
   my %storages = (
     shard1 => ShardedKV::Storage::Redis->new(
-      redis_master_str => 'redisserver:6379',
-      redis_slave_strs => ['redisbackup:6379', 'redisbackup2:6379'],
+      redis_connect_str => 'redisserver:6379',
     ),
     shard2 => ShardedKV::Storage::Redis->new(
-      redis_master_str => 'redisserver:6380',
-      redis_slave_strs => ['redisbackup:6380', 'redisbackup2:6380'],
+      redis_connect_str => 'redisserver:6380',
     ),
   );
   

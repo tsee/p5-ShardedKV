@@ -85,7 +85,7 @@ __END__
   use ShardedKV::Storage::Redis::Hash;
   ... create ShardedKV...
   my $storage = ShardedKV::Storage::Redis::Hash->new(
-    redis_master_str => 'redisshard1:679',
+    redis_connect_str => 'redisshard1:679',
     expiration_time => 60*60, #1h
   );
   ... put storage into ShardedKV...
