@@ -2,6 +2,14 @@ Revision history for Perl extension Foo.
 
 {{$NEXT}}
 
+0.14      2013-01-21 14:43:33 Europe/Amsterdam
+
+  - API CHANGE FOR THE SHIPPED STORAGE BACKENDS
+  - Add error classes and throw exceptions when needed
+  - Add some additional documentation
+  - Remove all references to "master" connections
+    (we'll add that feature at a later date if needed
+
 0.13      2012-06-21 15:42:42 Europe/Berlin
 
   - More documentation
