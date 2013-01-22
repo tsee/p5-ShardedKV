@@ -1,6 +1,10 @@
-Revision history for Perl extension Foo.
+Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
+
+0.15      2013-01-22 12:42:24 Europe/Amsterdam
+
+  - Ugh. Forgot the damn Throwable dep
 
 0.14      2013-01-21 14:43:33 Europe/Amsterdam
 
