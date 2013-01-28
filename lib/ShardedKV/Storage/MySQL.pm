@@ -492,7 +492,7 @@ sub delete {
 
 sub reset_connection {
   my ($self) = @_;
-  $self->_clear_connection();
+  $self->clear_mysql_connection();
 }
 
 no Moose;
