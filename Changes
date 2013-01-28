@@ -2,6 +2,13 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+0.16      2013-01-28 17:16:09 Europe/Amsterdam
+  
+  - Implement reset_connection($key) at the top level
+  - Add tests for reset_connection() functionality
+  - Fix some POD retardedness
+  - Fix a bug in MySQL storage reset_connection
+
 0.15      2013-01-22 12:42:24 Europe/Amsterdam
 
   - Ugh. Forgot the damn Throwable dep
