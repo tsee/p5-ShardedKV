@@ -21,3 +21,4 @@ t/XS*.o
 t/XS*.so
 ShardedKV-*/
 .build
+/*.conf
