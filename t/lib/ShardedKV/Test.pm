@@ -148,6 +148,12 @@ sub test_setget {
   my %data = map {(substr(rand(), 0, 16), rand())} 0..1000;
 
   foreach (sort keys %data) {
+    # randomly induce reconnects about 5% of the time
+    # the set should spin up another connection and things
+    # should just work.
+    if(int(rand(100)) < 5) {
+        $skv->reset_connection($_);
+    }
     push @keys, $refmaker->($_);
     $skv->set($_, $refmaker->($data{$_}));
   }
@@ -281,11 +287,27 @@ sub extension_test_by_one_server_ketama {
 
   # Rewrite part of the keys
   my @first_half_keys = splice(@keys, 0, int(@keys/2));
-  $skv->set($_, $make_ref->("N$_")) for @first_half_keys;
+  foreach (@first_half_keys) {
+    # randomly induce reconnects about 5% of the time
+    # the set should spin up another connection and things
+    # should just work.
+    if(int(rand(100)) < 5) {
+      $skv->reset_connection($_);
+    }
+    $skv->set($_, $make_ref->("N$_"));
+  }
 
   # Check old and new keys
   is_deeply($skv->get($_), $make_ref->("v$_")) for @keys;
-  is_deeply($skv->get($_), $make_ref->("N$_")) for @first_half_keys;
+  foreach (@first_half_keys) {
+    # randomly induce reconnects about 5% of the time
+    # the set should spin up another connection and things
+    # should just work.
+    if(int(rand(100)) < 5) {
+      $skv->reset_connection($_);
+    }
+    is_deeply($skv->get($_), $make_ref->("N$_"))
+  }
 
   if ($storage_type =~ /memory/i) {
     # FIXME support this part of the test for mysql and redis!
@@ -338,7 +360,15 @@ sub extension_test_by_multiple_servers_ketama {
 
   # Check old and new keys
   is_deeply($skv->get($_), $make_ref->("v$_")) for @keys;
-  is_deeply($skv->get($_), $make_ref->("N$_")) for @first_half_keys;
+  foreach (@first_half_keys) {
+    # randomly induce reconnects about 5% of the time
+    # the set should spin up another connection and things
+    # should just work.
+    if(int(rand(100)) < 5) {
+      $skv->reset_connection($_);
+    }
+    is_deeply($skv->get($_), $make_ref->("N$_"))
+  }
 
   if ($storage_type =~ /memory/i) {
     # FIXME support this part of the test for mysql and redis!
@@ -398,3 +428,4 @@ sub make_skv {
 }
 
 1;
+# vim: ts=2 sw=2 et
