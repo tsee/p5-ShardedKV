@@ -5,7 +5,7 @@ extends 'ShardedKV::Error';
 #ABSTRACT: Thrown when get() fails on a storage backend
 
 
-=public_attribute key
+=attribute_public key
 
   (is: ro, isa: Str, required)
 

@@ -5,7 +5,7 @@ extends 'ShardedKV::Error';
 #ABSTRACT: Thrown when set() fails on a storage backend
 
 
-=public_attribute key
+=attribute_public key
 
   (is: ro, isa: Str, required)
 
@@ -19,7 +19,7 @@ has key => (
   required => 1,
 );
 
-=public_attribute operation
+=attribute_public operation
 
   (is: ro, isa: enum(set, expire))
 
@@ -31,7 +31,7 @@ this value.
 
 =cut
 
-=public_method has_operation
+=method_public has_operation
 
 has_operation() is the predicate check for the L</operation> attribute. It
 checks if operation is defined (ie. the backend set a value).

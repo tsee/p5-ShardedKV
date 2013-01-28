@@ -4,7 +4,7 @@ extends 'Throwable::Error';
 
 #ABSTRACT: Provides an error class for managing exceptions
 
-=public_attribute storage_type
+=attribute_public storage_type
 
   (is: ro, isa: enum(redis, mysql), required)
 
@@ -20,7 +20,7 @@ has storage_type => (
   required => 1,
 );
 
-=public_attribute endpoint
+=attribute_public endpoint
 
   (is: ro, isa: Str, required)
 
