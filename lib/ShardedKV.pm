@@ -179,6 +179,48 @@ sub delete {
   }
 }
 
+=method_public reset_connection
+
+Given a key, it retrieves to which shard it would have communicated and calls
+reset_connection() upon it. This allows doing a reconnect only for the shards
+that have problems. If there is a migration_continuum it will also reset the
+connection to that shard as well in an abundance of caution.
+
+=cut
+
+sub reset_connection {
+  my ($self, $key) = @_;
+
+  my ($mig_cont, $cont) = @{$self}{qw(migration_continuum continuum)};
+
+  # dumb code for efficiency (otherwise, this would be a loop or in methods)
+
+  my $logger = $self->{logger};
+  my $do_debug = ($logger and $logger->is_debug) ? 1 : 0;
+
+  my $storages = $self->{storages};
+  my $chosen_shard;
+  # Reset the shard pointed at by migr. cont. first
+  if (defined $mig_cont) {
+    $chosen_shard = $mig_cont->choose($key);
+    $logger->debug("Resetting the connection to the shard from migration continuum, got storage '$chosen_shard'") if $do_debug;
+    my $storage = $storages->{ $chosen_shard };
+    die "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'"
+      if not $storage;
+    $storage->reset_connection();
+  }
+
+  # Reset the shard from the main continuum
+  my $where = $cont->choose($key);
+  $logger->debug("Resetting the connection to the shard from the main continuum, got storage '$where'") if $do_debug;
+  if (!$chosen_shard or $where ne $chosen_shard) {
+    my $storage = $storages->{ $where };
+    die "Failed to find chosen storage (server) for id '$where' via key '$key'"
+      if not $storage;
+    $storage->reset_connection();
+  }
+}
+
 =method_public begin_migration
 
 Given a C<ShardedKV::Continuum> object, this sets the
@@ -396,3 +438,4 @@ and put on CPAN, for which the authors would like to express
 their gratitude.
 
 =cut
+# vim: ts=2 sw=2 et
