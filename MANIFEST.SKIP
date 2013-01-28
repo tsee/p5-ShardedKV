@@ -49,3 +49,4 @@ save_err$
 ~$
 ^MYMETA.yml$
 MM_Unix.pm$
+^test.+conf$
