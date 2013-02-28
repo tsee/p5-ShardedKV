@@ -9,5 +9,6 @@ use ShardedKV::Error;
 use ShardedKV::Error::ConnectFail;
 use ShardedKV::Error::ReadFail;
 use ShardedKV::Error::WriteFail;
+use ShardedKV::Error::DeleteFail;
 
 pass();

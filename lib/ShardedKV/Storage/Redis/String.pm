@@ -24,7 +24,7 @@ sub get {
       endpoint => $endpoint,
       key => $key,
       storage_type => 'redis',
-      message => "Failed to fetch key ($key) from Redis ($endpoint): @_",
+      message => "Failed to fetch key ($key) from Redis ($endpoint): $@",
     });
   };
   
@@ -40,8 +40,10 @@ sub set {
   my ($self, $key, $value_ref) = @_;
   my $r = $self->redis;
 
-  my $rv = eval {
-    $r->set($key, $$value_ref);
+  my $rv;
+  eval {
+    $rv = $r->set($key, $$value_ref);
+    1;
   } or do {
     my $endpoint = $self->redis_connect_str;
     ShardedKV::Error::WriteFail->throw({
@@ -49,7 +51,7 @@ sub set {
       key => $key,
       storage_type => 'redis',
       operation => 'set',
-      message => "Failed to store key ($key) to Redis ($endpoint): @_",
+      message => "Failed to store key ($key) to Redis ($endpoint): $@",
     });
   };
 
@@ -67,7 +69,7 @@ sub set {
         key => $key,
         storage_type => 'redis',
         operation => 'expire',
-        message => "Failed to store key ($key) to Redis ($endpoint): @_",
+        message => "Failed to store key ($key) to Redis ($endpoint): $@",
       });
     };
   }

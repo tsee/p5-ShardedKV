@@ -93,7 +93,7 @@ sub _make_connection {
     ShardedKV::Error::ConnectFail->throw({
       endpoint => $endpoint,
       storage_type => 'redis',
-      message => "Failed to make a connection to Redis ($endpoint)",
+      message => "Failed to make a connection to Redis ($endpoint): $@",
     });
   };
   my $dbno = $self->database_number;
@@ -109,7 +109,20 @@ Implemented in the base class, this method deletes the given key from the Redis 
 
 sub delete {
   my ($self, $key) = @_;
-  return $self->redis->del($key);
+  my $rv;
+  eval {
+    $rv = $self->redis->del($key);
+    1;
+  } or do {
+    my $endpoint = $self->redis_connect_str;
+    ShardedKV::Error::DeleteFail->throw({
+      endpoint => $endpoint,
+      key => $key,
+      storage_type => 'redis',
+      message => "Failed to delete key ($key) to Redis ($endpoint): $@",
+    });
+  };
+  return $rv ? 1 : 0;
 }
 
 =method_public get
