@@ -2,6 +2,11 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+0.17      2013-02-28 15:23:34 Europe/Amsterdam
+
+  - Correctly capture exception messages so they proprogated
+  - Add a new exception type DeleteFail (this was uncovered before)
+
 0.16      2013-01-28 17:16:09 Europe/Amsterdam
   
   - Implement reset_connection($key) at the top level
