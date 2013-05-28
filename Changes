@@ -2,6 +2,8 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+0.18      2013-05-28 17:35:01 Europe/Amsterdam
+
   - Auto-reconnect options for Redis storage backend.
 
 0.17      2013-02-28 15:23:34 Europe/Amsterdam
