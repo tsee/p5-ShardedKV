@@ -2,6 +2,8 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+  - Auto-reconnect options for Redis storage backend.
+
 0.17      2013-02-28 15:23:34 Europe/Amsterdam
 
   - Correctly capture exception messages so they proprogated
