@@ -109,6 +109,8 @@ SCOPE: { # redis
       redis_connect_str => get_redis_conf(),
       database_number => $idatabase,
       expiration_time => 30, # 30s
+      redis_reconnect_timeout => 10,
+      redis_retry_every => 1000,
     );
     $idatabase++;
     return $st;
