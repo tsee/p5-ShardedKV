@@ -22,6 +22,30 @@ has 'redis_connect_str' => (
   required => 1,
 );
 
+=attribute_public redis_retry_every
+
+The amount of time the C<Redis> object should wait between reconnect attempts, in milliseconds.  Default 500.
+
+=cut
+
+has 'redis_retry_every' => (
+  is => 'ro',
+  isa => 'Num',
+  default => 500,
+);
+
+=attribute_public redis_reconnect_timeout
+
+If set, the amount of time the C<Redis> object should try reconnecting for, in seconds.  If 0, do not attempt to reconnect.
+
+=cut
+
+has 'redis_reconnect_timeout' => (
+  is => 'ro',
+  isa => 'Num',
+  default => 0,
+);
+
 =attribute_public redis
 
 The C<Redis> object that represents the connection. Will be generated from the
@@ -88,6 +112,8 @@ sub _make_connection {
       Redis->new( # dies if it can't connect!
       server => $endpoint,
       encoding => undef, # no automatic utf8 encoding for performance
+      every => $self->redis_retry_every,
+      reconnect => $self->redis_reconnect_timeout,
     );
   } or do {
     ShardedKV::Error::ConnectFail->throw({
