@@ -5,6 +5,10 @@ use Moose;
 use Time::HiRes qw(sleep);
 use Carp ();
 
+use ShardedKV::Error::ConnectFail;
+use ShardedKV::Error::DeleteFail;
+use ShardedKV::Error::ReadFail;
+
 with 'ShardedKV::Storage';
 
 =attribute_public mysql_connector
