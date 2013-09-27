@@ -5,7 +5,9 @@ use Moose;
 use Encode;
 use Redis;
 use List::Util qw(shuffle);
+
 use ShardedKV::Error::ConnectFail;
+use ShardedKV::Error::DeleteFail;
 
 with 'ShardedKV::Storage';
 
