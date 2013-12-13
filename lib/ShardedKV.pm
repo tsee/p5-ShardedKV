@@ -367,10 +367,6 @@ __END__
 
 =head1 DESCRIPTION
 
-B<This is experimental software. Interfaces and implementation are subject to
-change. If you are interested in using this in production, please get in touch
-to gauge the current state of stability.>
-
 This module implements an abstract interface to a sharded key-value store.
 The storage backends as well as the "continuum" are pluggable. "Continuum"
 is to mean "the logic that decides in which shard a particular key lives".
@@ -432,8 +428,8 @@ level is enabled, to potentially avoid costly construction of log messages:
 
 =head1 ACKNLOWLEDGMENT
 
-This module was originally developed for booking.com.
-With approval from booking.com, this module was generalized
+This module was originally developed for Booking.com.
+With approval from Booking.com, this module was generalized
 and put on CPAN, for which the authors would like to express
 their gratitude.
 
