@@ -117,7 +117,6 @@ sub _make_connection {
       every => $self->redis_retry_every,
       reconnect => $self->redis_reconnect_timeout,
     );
-    1;
   } or do {
     my $error = $@ || "Zombie Error";
     ShardedKV::Error::ConnectFail->throw({
@@ -146,6 +145,7 @@ sub delete {
   } or do {
     my $error = $@ || "Zombie Error";
     my $endpoint = $self->redis_connect_str;
+    $self->reset_connection;
     ShardedKV::Error::DeleteFail->throw({
       endpoint => $endpoint,
       key => $key,
