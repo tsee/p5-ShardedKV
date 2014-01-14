@@ -28,6 +28,7 @@ sub get {
   } or do {
     my $error = $@ || "Zombie Error";
     my $endpoint = $self->redis_connect_str;
+    $self->reset_connection;
     ShardedKV::Error::ReadFail->throw({
       endpoint => $endpoint,
       key => $key,
@@ -53,6 +54,7 @@ sub set {
   } or do {
     my $error = $@ || "Zombie Error";
     my $endpoint = $self->redis_connect_str;
+    $self->reset_connection;
     ShardedKV::Error::WriteFail->throw({
       endpoint => $endpoint,
       key => $key,
@@ -72,6 +74,7 @@ sub set {
     } or do {
       my $error = $@ || "Zombie Error";
       my $endpoint = $self->redis_connect_str;
+      $self->reset_connection;
       ShardedKV::Error::WriteFail->throw({
         endpoint => $endpoint,
         key => $key,

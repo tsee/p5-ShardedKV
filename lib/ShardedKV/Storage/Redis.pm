@@ -145,6 +145,7 @@ sub delete {
   } or do {
     my $error = $@ || "Zombie Error";
     my $endpoint = $self->redis_connect_str;
+    $self->reset_connection;
     ShardedKV::Error::DeleteFail->throw({
       endpoint => $endpoint,
       key => $key,
