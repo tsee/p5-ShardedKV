@@ -429,18 +429,18 @@ sub _run_sql {
     my $dbh = $self->mysql_connection;
     eval {
       $rv = $dbh->$method($query, @args);
-      1
+      1;
     } or do {
-      my $err = $@ || 'Zombie error';
+      my $error = $@ || "Zombie Error";
       ++$iconn;
-      if ($err =~ /MySQL server has gone away/i
+      if ($error =~ /MySQL server has gone away/i
           and $iconn <= $self->max_num_reconnect_attempts)
       {
         sleep($self->reconnect_interval * 2 ** ($iconn-2)) if $iconn > 1;
         $self->refresh_connection;
         redo;
       }
-      Carp::confess("Despite trying hard: $err");
+      Carp::confess("Despite trying hard: $error");
     };
     last;
   }
@@ -455,12 +455,13 @@ sub get {
     $rv = $self->_run_sql('selectall_arrayref', $self->_get_query, undef, $key);
     1;
   } or do {
+    my $error = $@ || "Zombie Error";
     my $endpoint = $self->mysql_endpoint->();
     ShardedKV::Error::ReadFail->throw({
       endpoint => $endpoint,
       key => $key,
       storage_type => 'mysql',
-      message => "Failed to fetch key ($key) from MySQL ($endpoint): $@, ${\$DBI::errstr} ",
+      message => "Failed to fetch key ($key) from MySQL ($endpoint): $error, ${\$DBI::errstr} ",
     });
   };
   return ref($rv) ? $rv->[0] : undef;
@@ -477,12 +478,13 @@ sub set {
     $rv = $self->_run_sql('do', $self->_set_query, undef, $key, @$value_ref);
     1;
   } or do {
+    my $error = $@ || "Zombie Error";
     my $endpoint = $self->mysql_endpoint->();
     ShardedKV::Error::ReadFail->throw({
       endpoint => $endpoint,
       key => $key,
       storage_type => 'mysql',
-      message => "Failed to fetch key ($key) from MySQL ($endpoint): $@, ${\$DBI::errstr}",
+      message => "Failed to fetch key ($key) from MySQL ($endpoint): $error, ${\$DBI::errstr}",
     });
   };
   return $rv ? 1 : 0;
@@ -495,12 +497,13 @@ sub delete {
     $rv = $self->_run_sql('do', $self->_delete_query, undef, $key);
     1;
   } or do {
+    my $error = $@ || "Zombie Error";
     my $endpoint = $self->mysql_endpoint->();
     ShardedKV::Error::DeleteFail->throw({
       endpoint => $endpoint,
       key => $key,
       storage_type => 'mysql',
-      message => "Failed to delete key ($key) to MySQL ($endpoint): $@, ${\$DBI::errstr}",
+      message => "Failed to delete key ($key) to MySQL ($endpoint): $error, ${\$DBI::errstr}",
     });
   };
   return $rv ? 1 : 0;

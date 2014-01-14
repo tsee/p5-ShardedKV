@@ -117,11 +117,13 @@ sub _make_connection {
       every => $self->redis_retry_every,
       reconnect => $self->redis_reconnect_timeout,
     );
+    1;
   } or do {
+    my $error = $@ || "Zombie Error";
     ShardedKV::Error::ConnectFail->throw({
       endpoint => $endpoint,
       storage_type => 'redis',
-      message => "Failed to make a connection to Redis ($endpoint): $@",
+      message => "Failed to make a connection to Redis ($endpoint): $error",
     });
   };
   my $dbno = $self->database_number;
@@ -142,12 +144,13 @@ sub delete {
     $rv = $self->redis->del($key);
     1;
   } or do {
+    my $error = $@ || "Zombie Error";
     my $endpoint = $self->redis_connect_str;
     ShardedKV::Error::DeleteFail->throw({
       endpoint => $endpoint,
       key => $key,
       storage_type => 'redis',
-      message => "Failed to delete key ($key) to Redis ($endpoint): $@",
+      message => "Failed to delete key ($key) to Redis ($endpoint): $error",
     });
   };
   return $rv ? 1 : 0;
