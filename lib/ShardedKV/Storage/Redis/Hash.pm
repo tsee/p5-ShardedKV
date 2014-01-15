@@ -104,7 +104,7 @@ __END__
   );
   ... put storage into ShardedKV...
   
-  # values are scalar references to strings
+  # values are HashRefs
   $skv->set("foo", {bar => 'baz', cat => 'dog'});
   my $value_ref = $skv->get("foo");
 
@@ -115,8 +115,7 @@ simple string/blob values in Redis. See the documentation
 for C<ShardedKV::Storage::Redis> for the interface of this
 class.
 
-The values of a C<ShardedKV::Storage::Redis::Hash> are
-actually scalar references to strings.
+The values of a C<ShardedKV::Storage::Redis::Hash> are HashRefs.
 
 =head1 SEE ALSO
 
