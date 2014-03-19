@@ -2,6 +2,13 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+  - Several minor bugfixes like "use"-ing a module that might be used
+    for exceptions, fixing some exception logic.
+
+  - Try to deal with Redis clients that have gone away for whatever
+    reason (likely due to errors) by resetting the Redis connection on
+    errors.
+
 0.18      2013-05-28 17:35:01 Europe/Amsterdam
 
   - Auto-reconnect options for Redis storage backend.
