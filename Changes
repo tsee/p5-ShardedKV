@@ -2,6 +2,10 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+  - This module is *no longer* considered experimental. It's been used
+    in production at Booking.com for a long time now without much
+    issue.
+
   - Several minor bugfixes like "use"-ing a module that might be used
     for exceptions, fixing some exception logic.
 
