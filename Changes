@@ -2,6 +2,8 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+0.20      2014-06-14 16:54:36UTC+0000 UTC
+
   - In addition to reconnecting if we get a MySQL error matching
     "MySQL server has gone away" we now also reconnect if the error
     matches "Lost connection to MySQL server during query".
