@@ -18,7 +18,7 @@ object will invoke the callback whenever it needs to get a NEW mysql
 database handle. This means when:
 
   - first connecting
-  - "MySQL server has gone away" => reconnect
+  - Error matches refresh_mysql_connection_on_error_regex => reconnect
 
 The callback allows users to hook into the connection logic to implement
 things such as connection caching. If you do use connection caching, then
@@ -261,6 +261,24 @@ has 'reconnect_interval' => (
   default => 1,
 );
 
+=attribute_public refresh_mysql_connection_on_error_regex
+
+A regular expression that we'll match MySQL errors against, if it
+matches the error is considered recoverable and we'll refresh the
+connection. Set to C<Undef> to disable this feature.
+
+Default: Matches "MySQL server has gone away" and "Lost connection to
+MySQL server during query" errors. See the source.
+
+=cut
+
+has 'refresh_mysql_connection_on_error_regex' => (
+  is => 'rw',
+  isa => 'Maybe[Regexp]',
+  lazy => 1,
+  builder => '_make_refresh_mysql_connection_on_error_regex',
+);
+
 # Could be prepared, but that is kind of nasty wrt. reconnects, so let's not go
 # there unless we have to!
 has '_get_query' => (
@@ -293,6 +311,7 @@ has '_number_of_params' => (
 
 sub BUILD {
   $_[0]->_number_of_params;
+  $_[0]->refresh_mysql_connection_on_error_regex;
 };
 
 sub _calc_no_params {
@@ -347,6 +366,14 @@ sub _make_delete_query {
   $logger->debug("Generated the following delete-query:\n$q") if $logger;
 
   return $q;
+}
+
+sub _make_refresh_mysql_connection_on_error_regex {
+  my $self = shift;
+  # Does this really need to be /i and can't it just be bounded? Not
+  # changing how it was in the original source because I didn't have
+  # time to check.
+  return qr/(?:MySQL server has gone away|Lost connection to MySQL server during query)/i;
 }
 
 =method_public prepare_table
@@ -425,6 +452,7 @@ sub _run_sql {
 
   my $iconn;
   my $rv;
+  my $refresh_mysql_connection_on_error_regex = $self->{refresh_mysql_connection_on_error_regex};
   while (1) {
     my $dbh = $self->mysql_connection;
     eval {
@@ -433,7 +461,8 @@ sub _run_sql {
     } or do {
       my $error = $@ || "Zombie Error";
       ++$iconn;
-      if ($error =~ /MySQL server has gone away/i
+      if (defined $refresh_mysql_connection_on_error_regex
+          and $error =~ $refresh_mysql_connection_on_error_regex
           and $iconn <= $self->max_num_reconnect_attempts)
       {
         sleep($self->reconnect_interval * 2 ** ($iconn-2)) if $iconn > 1;

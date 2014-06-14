@@ -2,6 +2,10 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+  - In addition to reconnecting if we get a MySQL error matching
+    "MySQL server has gone away" we now also reconnect if the error
+    matches "Lost connection to MySQL server during query".
+
 0.19      2014-03-19 11:46:23UTC+0000 UTC
 
   - This module is *no longer* considered experimental. It's been used
