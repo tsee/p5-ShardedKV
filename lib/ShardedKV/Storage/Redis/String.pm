@@ -31,7 +31,6 @@ sub get {
   };
   
   if(defined($str)) {
-    Encode::_utf8_on($str); # FIXME wrong, wrong, wrong, but Redis.pm would otherwise call encode() all the time
     return \$str;
   } else {
     return undef;
