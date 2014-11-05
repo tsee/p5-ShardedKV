@@ -6,6 +6,7 @@ require ShardedKV::Storage;
 require ShardedKV::Storage::Memory;
 require ShardedKV::Continuum;
 
+use Carp;
 
 =attribute_public continuum
 
@@ -19,6 +20,7 @@ has 'continuum' => (
   is => 'rw',
   does => 'ShardedKV::Continuum',
   required => 1,
+  trigger => \&_rebuild_getter,
 );
 
 =attribute_public migration_continuum
@@ -32,7 +34,24 @@ below!
 has 'migration_continuum' => (
   is => 'rw',
   does => 'ShardedKV::Continuum',
+  trigger => \&_rebuild_getter,
+  clearer => '_clear_migration_continuum',
 );
+
+sub _rebuild_getter {
+    $_[0]->has_getter
+      and ${$_[0]->getter} = $_[0]->_build_get_currying();
+}
+
+has 'getter' => (
+  is => 'ro',
+  lazy => 1,
+  predicate => 'has_getter',
+  clearer => '_clear_getter',
+  builder => '_build_getter',
+);
+
+sub _build_getter { \( $_[0]->_build_get_currying() ) }
 
 =attribute_public storages
 
@@ -60,6 +79,7 @@ for logging/debugging purposes. See L</LOGGING> for details.
 
 has 'logger' => (
   is => 'rw',
+  trigger => \&_rebuild_getter,
 );
 
 =method_public get
@@ -76,39 +96,51 @@ in the future.
 =cut
 
 # bypassing accessors since this is a hot path
-sub get {
-  my ($self, $key) = @_;
-  my ($mig_cont, $cont) = @{$self}{qw(migration_continuum continuum)};
+sub get { ${$_[0]->getter}->($_[1]) }
 
-  # dumb code for efficiency (otherwise, this would be a loop or in methods)
+sub _build_get_currying {
+  my ($self) = @_;
 
-  my $logger = $self->{logger};
-  my $do_debug = ($logger and $logger->is_debug) ? 1 : 0;
+  my $mig_cont = $self->migration_continuum;
+  my $cont     = $self->continuum;
+  my $logger   = $self->logger;
+  my $do_debug = $logger && $logger->is_debug ? 1 : 0;
+  my $storages = $self->storages;
 
-  my $storages = $self->{storages};
-  my $chosen_shard;
-  my $value_ref;
-  if (defined $mig_cont) {
-    $chosen_shard = $mig_cont->choose($key);
-    $logger->debug("get()using migration continuum, got storage '$chosen_shard'") if $do_debug;
-    my $storage = $storages->{ $chosen_shard };
-    die "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'"
-      if not $storage;
-    $value_ref = $storage->get($key);
+  if (! defined $mig_cont) {
+      return sub {
+          my ($key) = @_;
+          my $where = $cont->choose($key);
+          $logger->debug("get() using regular continuum, got storage '$where'") if $do_debug;
+          my $storage = $storages->{ $where }
+            or croak "Failed to find chosen storage (server) for id '$where' via key '$key'";
+          return $storage->get($key);
+      };
   }
 
-  if (not defined $value_ref) {
-    my $where = $cont->choose($key);
-    $logger->debug("get()using regular continuum, got storage '$where'") if $do_debug;
-    if (!$chosen_shard or $where ne $chosen_shard) {
-      my $storage = $storages->{ $where };
-      die "Failed to find chosen storage (server) for id '$where' via key '$key'"
-        if not $storage;
-      $value_ref = $storage->get($key);
-    }
-  }
+  return sub {
+      my ($key) = @_;
+      my $chosen_shard = $mig_cont->choose($key);
+      $logger->debug("get() using migration continuum, got storage '$chosen_shard'") if $do_debug;
+      my $storage = $storages->{ $chosen_shard }
+        or croak "Failed to find chosen storage (server) for id '$chosen_shard' via key '$key'";
+      my $value_ref = $storage->get($key);
+      defined $value_ref
+        and return $value_ref;
 
-  return $value_ref;
+      # found nothing in the migration continuum, try the normal one
+      my $where = $cont->choose($key);
+      $logger->debug("get() using regular continuum, got storage '$where'") if $do_debug;
+
+      # we hit the same shard, not useful to try.
+      $where eq $chosen_shard
+        and return undef;
+
+      $storage = $storages->{ $where }
+        or croak "Failed to find chosen storage (server) for id '$where' via key '$key'";
+      return $storage->get($key);
+  };
+
 }
 
 =method_public set
@@ -130,9 +162,8 @@ sub set {
 
   my $where = $continuum->choose($key);
   my $storage = $self->{storages}{$where};
-  if (not $storage) {
-    die "Failed to find chosen storage (server) for id '$where' via key '$key'";
-  }
+  $storage
+    or croak "Failed to find chosen storage (server) for id '$where' via key '$key'";
 
   $storage->set($key, $value_ref);
 }
@@ -302,11 +333,11 @@ continuum and set the C<migration_continuum> property to undef.
 sub begin_migration {
   my ($self, $migration_continuum) = @_;
 
-  my $logger = $self->{logger};
+  my $logger = $self->logger;
   if ($self->migration_continuum) {
     my $err = "Cannot start a continuum migration in the middle of another migration";
     $logger->fatal($err) if $logger;
-    Carp::croak($err);
+    croak($err);
   }
   $logger->info("Starting continuum migration") if $logger;
 
@@ -321,11 +352,11 @@ See the C<begin_migration> docs above.
 
 sub end_migration {
   my ($self) = @_;
-  my $logger = $self->{logger};
+  my $logger = $self->logger;
   $logger->info("Ending continuum migration") if $logger;
 
   $self->continuum($self->migration_continuum);
-  delete $self->{migration_continuum};
+  $self->_clear_migration_continuum;
 }
 
 no Moose;
@@ -337,7 +368,7 @@ __END__
 
   use ShardedKV;
   use ShardedKV::Continuum::Ketama;
-  use ShardedKV::Storage::Redis;
+  use ShardedKV::Storage::Redis::String;
   
   my $continuum_spec = [
     ["shard1", 100], # shard name, weight
@@ -348,10 +379,10 @@ __END__
   # Redis storage chosen here, but can also be "Memory" or "MySQL".
   # "Memory" is for testing. Mixing storages likely has weird side effects.
   my %storages = (
-    shard1 => ShardedKV::Storage::Redis->new(
+    shard1 => ShardedKV::Storage::Redis::String->new(
       redis_connect_str => 'redisserver:6379',
     ),
-    shard2 => ShardedKV::Storage::Redis->new(
+    shard2 => ShardedKV::Storage::Redis::String->new(
       redis_connect_str => 'redisserver:6380',
     ),
   );
