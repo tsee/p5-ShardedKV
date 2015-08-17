@@ -9,6 +9,8 @@ use List::Util qw(shuffle);
 use ShardedKV::Error::ConnectFail;
 use ShardedKV::Error::DeleteFail;
 
+use Carp;
+
 with 'ShardedKV::Storage';
 
 =attribute_public redis_connect_str
@@ -46,6 +48,20 @@ has 'redis_reconnect_timeout' => (
   is => 'ro',
   isa => 'Num',
   default => 0,
+);
+
+=attribute_public redis_options
+
+Key-value pairs we pass to the constructor of the Redis object.
+Overriding 'redis_connect_str' with the Redis option 'server' is
+not allowed.
+
+=cut
+
+has 'redis_options' => (
+    is  => 'ro',
+    isa => 'HashRef',
+    default => sub { +{} },
 );
 
 =attribute_public redis
@@ -110,13 +126,22 @@ has 'database_number' => (
 sub _make_connection {
   my ($self) = @_;
   my $endpoint = $self->redis_connect_str;
-  my $r = eval {
-      Redis->new( # dies if it can't connect!
+
+  my %opts = (
       server => $endpoint,
       encoding => undef, # no automatic utf8 encoding for performance
       every => $self->redis_retry_every,
-      reconnect => $self->redis_reconnect_timeout,
-    );
+      reconnect => $self->redis_reconnect_timeout
+  );
+  @opts{keys %{$self->redis_options}} = values %{$self->redis_options};
+  if ($opts{server} ne $endpoint) {
+      croak("Overriding the redis_connect_str is not allowed. ".
+            "You set the key 'server' in 'redis_options'.")
+
+  }
+
+  my $r = eval {
+      Redis->new( %opts ); # dies if it can't connect!
   } or do {
     my $error = $@ || "Zombie Error";
     ShardedKV::Error::ConnectFail->throw({
