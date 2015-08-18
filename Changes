@@ -8,6 +8,9 @@ Revision history for ShardedKV: {{ $dist->version }}
  - Stop using Carp::*, now we just usie die() directly (you can get
    stacktraces with your own __DIE__ handler.
 
+ - Fix up use of eval {} in ShardedKV::Storage::Redis to use the
+   trailing 1; pattern.
+
 0.20      2014-06-14 16:54:36UTC+0000 UTC
 
   - In addition to reconnecting if we get a MySQL error matching

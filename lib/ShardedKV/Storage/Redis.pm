@@ -110,13 +110,15 @@ has 'database_number' => (
 sub _make_connection {
   my ($self) = @_;
   my $endpoint = $self->redis_connect_str;
-  my $r = eval {
-      Redis->new( # dies if it can't connect!
+  my $r;
+  eval {
+    $r = Redis->new( # dies if it can't connect!
       server => $endpoint,
       encoding => undef, # no automatic utf8 encoding for performance
       every => $self->redis_retry_every,
       reconnect => $self->redis_reconnect_timeout,
     );
+    1;
   } or do {
     my $error = $@ || "Zombie Error";
     ShardedKV::Error::ConnectFail->throw({
