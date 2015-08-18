@@ -306,7 +306,7 @@ sub begin_migration {
   if ($self->migration_continuum) {
     my $err = "Cannot start a continuum migration in the middle of another migration";
     $logger->fatal($err) if $logger;
-    Carp::croak($err);
+    die $err;
   }
   $logger->info("Starting continuum migration") if $logger;
 

@@ -3,7 +3,6 @@ use Moose;
 # ABSTRACT: MySQL storage backend for ShardedKV
 
 use Time::HiRes qw(sleep);
-use Carp ();
 
 use ShardedKV::Error::ConnectFail;
 use ShardedKV::Error::DeleteFail;
@@ -469,7 +468,7 @@ sub _run_sql {
         $self->refresh_connection;
         redo;
       }
-      Carp::confess("Despite trying hard: $error");
+      die "Despite trying hard: $error";
     };
     last;
   }
@@ -499,7 +498,7 @@ sub get {
 sub set {
   my ($self, $key, $value_ref) = @_;
 
-  Carp::croak("Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref))
+  die "Need exactly " . ($self->{_number_of_params}-1) . " values, got " . scalar(@$value_ref)
     if not scalar(@$value_ref) == $self->_number_of_params-1;
   
   my $rv;

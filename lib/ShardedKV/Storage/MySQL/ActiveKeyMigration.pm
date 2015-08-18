@@ -3,7 +3,6 @@ use strict;
 use warnings;
 # ABSTRACT: Simple-minded active key migration for the MySQL storage back-end
 use Scalar::Util qw(blessed);
-use Carp qw(croak);
 use Time::HiRes qw(sleep);
 
 =head1 DESCRIPTION
@@ -19,7 +18,7 @@ sub migrate_to_additional_storage {
 
   my $skv = $args{shardedkv};
   if (not blessed($skv) or not $skv->isa("ShardedKV")) {
-    croak("Need ShardedKV object as first parameter");
+    die "Need ShardedKV object as first parameter";
   }
   my $chunksize = $args{chunksize} || 1000;
   my $chunksleep = defined($args{chunksleep}) ? $args{chunksleep} : 1;

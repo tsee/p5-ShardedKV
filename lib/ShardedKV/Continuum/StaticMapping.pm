@@ -84,19 +84,19 @@ sub extend {
   #   drop partitions or tables that are not required respectively on old or new machine.
   #   GAAH.
 
-  Carp::croak("StaticMapping spec must be an Array of Arrays, each inner record holding range start, end, and weight! This is not an array")
+  die "StaticMapping spec must be an Array of Arrays, each inner record holding range start, end, and weight! This is not an array"
     if not ref($spec) eq 'ARRAY';
   my @ranges = [sort {$a->[0] <=> $b->[0]} @$spec];
   my $orig_mapping = $self->_original_range_mapping;
   my $prev = $orig_mapping->[-1][1];
   my $intspan = $self->_intspan;
   foreach my $range (@ranges) {
-    Carp::croak("StaticMapping spec must be an Array of Arrays, each inner record "
-                . "holding range start, end, and weight! This particular record is not an array or does not hold three elements")
+    die "StaticMapping spec must be an Array of Arrays, each inner record "
+      . "holding range start, end, and weight! This particular record is not an array or does not hold three elements"
       if not ref($range) eq 'ARRAY' and @$range == 3;
     if ($range->[0] != $prev+1) {
-      Carp::croak("The lower boundary of any StaticMapping range needs to be one above the end of the previous"
-                  ." range or 0 for the first range");
+      die "The lower boundary of any StaticMapping range needs to be one above the end of the previous"
+         ." range or 0 for the first range";
     }
     my $overlapping = $intspan->set_range(@$range);
     die("Assertion fail: range overlap!")
@@ -134,17 +134,17 @@ sub _make_intspan {
   my $self = shift;
   my $spec = shift;
 
-  Carp::croak("StaticMapping spec must be an Array of Arrays, each inner record holding range start, end, and weight! This is not an array")
+  die "StaticMapping spec must be an Array of Arrays, each inner record holding range start, end, and weight! This is not an array"
     if not ref($spec) eq 'ARRAY';
   my $prev = -1;
   my $intspan = Array::IntSpan->new;
   foreach my $range (@$spec) {
-    Carp::croak("StaticMapping spec must be an Array of Arrays, each inner record "
-                . "holding range start, end, and weight! This particular record is not an array or does not hold three elements")
+    die "StaticMapping spec must be an Array of Arrays, each inner record "
+      . "holding range start, end, and weight! This particular record is not an array or does not hold three elements"
       if not ref($range) eq 'ARRAY' and @$range == 3;
     if ($range->[0] != $prev+1) {
-      Carp::croak("The lower boundary of any StaticMapping range needs to be one above the end of the previous"
-                  ." range or 0 for the first range");
+      die "The lower boundary of any StaticMapping range needs to be one above the end of the previous"
+         ." range or 0 for the first range";
     }
     my $overlapping = $intspan->set_range(@$range);
     die("Assertion fail: range overlap!")

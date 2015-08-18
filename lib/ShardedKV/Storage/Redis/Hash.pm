@@ -3,7 +3,6 @@ use Moose;
 # ABSTRACT: Storing hash values in Redis
 use Encode;
 use Redis;
-use Carp ();
 use ShardedKV::Error::ReadFail;
 use ShardedKV::Error::WriteFail;
 
@@ -42,7 +41,7 @@ sub get {
 sub set {
   my ($self, $key, $value_ref) = @_;
   if (ref($value_ref) ne 'HASH') {
-    Carp::croak("Value must be a hashref");
+    die "Value must be a hashref";
   }
 
   my $r = $self->redis;

@@ -44,11 +44,11 @@ sub extend {
   my $spec = shift;
 
   my $ketama = $self->_ketama;
-  Carp::croak("Ketama spec must be an Array of Arrays, each inner record holding key and weight! This is not an array")
+  die "Ketama spec must be an Array of Arrays, each inner record holding key and weight! This is not an array"
     if not ref($spec) eq 'ARRAY';
   foreach my $elem (@$spec) {
-    Carp::croak("Ketama spec must be an Array of Arrays, each inner record "
-                . "holding key and weight! This particular record is not an array or does not hold two elements")
+    die "Ketama spec must be an Array of Arrays, each inner record "
+       . "holding key and weight! This particular record is not an array or does not hold two elements"
       if ref($elem) ne 'ARRAY' or @$elem != 2;
     $ketama->add_bucket(@$elem);
   }
@@ -78,12 +78,12 @@ sub _make_ketama {
   my $self = shift;
   my $spec = shift;
   my $ketama = Algorithm::ConsistentHash::Ketama->new;
-  Carp::croak("Ketama spec must be an Array of Arrays, each inner record holding key and weight! This is not an array")
+  die "Ketama spec must be an Array of Arrays, each inner record holding key and weight! This is not an array"
     if not ref($spec) eq 'ARRAY'
     or @$spec == 0;
   foreach my $elem (@$spec) {
-    Carp::croak("Ketama spec must be an Array of Arrays, each inner record "
-                . "holding key and weight! This particular record is not an array or does not hold two elements")
+    die "Ketama spec must be an Array of Arrays, each inner record "
+       . "holding key and weight! This particular record is not an array or does not hold two elements"
       if ref($elem) ne 'ARRAY' or @$elem != 2;
     $ketama->add_bucket(@$elem);
   }
