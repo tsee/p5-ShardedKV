@@ -2,6 +2,9 @@ Revision history for ShardedKV: {{ $dist->version }}
 
 {{$NEXT}}
 
+ - Depend on Algorithm-ConsistentHash-Ketama-0.00012, which has some
+   segfaulting issues fixed.
+
 0.20      2014-06-14 16:54:36UTC+0000 UTC
 
   - In addition to reconnecting if we get a MySQL error matching
